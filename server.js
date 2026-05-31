@@ -5,10 +5,18 @@ const path = require('path');
 const app = express();
 app.use(express.json());
 
+// Enable CORS for your frontend
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  if (req.method === 'OPTIONS') return res.sendStatus(200);
+  next();
+});
+
 const BOT_TOKEN = "8657162810:AAF1MVAqD72TmHj6UyVj9zWuGbJKsFcFSoI";
 const STATUS_FILE = path.join(__dirname, 'orders.json');
 
-// Load / save orders
 function loadOrders() {
   if (!fs.existsSync(STATUS_FILE)) return {};
   return JSON.parse(fs.readFileSync(STATUS_FILE));
@@ -17,11 +25,9 @@ function saveOrders(orders) {
   fs.writeFileSync(STATUS_FILE, JSON.stringify(orders, null, 2));
 }
 
-// Webhook for Telegram commands
 app.post('/webhook', async (req, res) => {
   const message = req.body.message;
   if (!message || !message.text) return res.sendStatus(200);
-  
   const text = message.text.trim();
   const chatId = message.chat.id;
   const match = text.match(/^\/(accept|reject)\s+(\d+)$/i);
@@ -48,12 +54,10 @@ app.post('/webhook', async (req, res) => {
   res.sendStatus(200);
 });
 
-// API for frontend to get all statuses
 app.get('/api/orders', (req, res) => {
   res.json(loadOrders());
 });
 
-// API to create/update order status (frontend calls when placing order)
 app.post('/api/update', (req, res) => {
   const { orderNo, status, table, total, lines, time } = req.body;
   let orders = loadOrders();
