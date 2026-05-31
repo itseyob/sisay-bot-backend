@@ -17,7 +17,7 @@ function escapeHtml(str) {
   });
 }
 
-// ========== RATE LIMITING (already there) ==========
+// ========== RATE LIMITING ==========
 const limiter = rateLimit({
   windowMs: 15 * 1000,
   max: 10,
@@ -34,15 +34,17 @@ app.use((req, res, next) => {
   next();
 });
 
-// ========== ENVIRONMENT VARIABLES ==========
+// ========== ENVIRONMENT VARIABLES (set on Render) ==========
 const BOT_TOKEN = process.env.BOT_TOKEN || "8657162810:AAF1MVAqD72TmHj6UyVj9zWuGbJKsFcFSoI";
 const CHAT_ID = process.env.CHAT_ID || "7369177892";
-const API_KEY = process.env.API_KEY || "your-secret-key-change-this";  // <-- SET THIS ON RENDER
+const API_KEY = process.env.API_KEY || "your-secret-key-change-this";
 
+// File paths
 const STATUS_FILE = path.join(__dirname, 'orders.json');
 const COUNTER_FILE = path.join(__dirname, 'counter.json');
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
-// ========== HELPERS FOR FILE STORAGE ==========
+// ========== FILE HELPERS ==========
 function loadCounter() {
   try {
     if (!fs.existsSync(COUNTER_FILE)) return 1;
@@ -50,6 +52,7 @@ function loadCounter() {
     return data ? JSON.parse(data).next : 1;
   } catch(e) { return 1; }
 }
+
 function saveCounter(next) {
   fs.writeFileSync(COUNTER_FILE, JSON.stringify({ next }));
 }
@@ -61,13 +64,32 @@ function loadOrders() {
     return data ? JSON.parse(data) : {};
   } catch(e) { return {}; }
 }
+
 function saveOrders(orders) {
   fs.writeFileSync(STATUS_FILE, JSON.stringify(orders, null, 2));
 }
 
-// ========== PLACE ORDER ENDPOINT (with sanitization) ==========
+// ========== AUTO-DELETE ORDERS OLDER THAN 7 DAYS ==========
+function deleteOldOrders() {
+  const orders = loadOrders();
+  const now = Date.now();
+  let changed = false;
+  for (const [orderNo, order] of Object.entries(orders)) {
+    if (!order.createdAt) continue;
+    if (now - order.createdAt > SEVEN_DAYS_MS) {
+      delete orders[orderNo];
+      changed = true;
+    }
+  }
+  if (changed) {
+    saveOrders(orders);
+    console.log(`🧹 Deleted orders older than 7 days at ${new Date().toISOString()}`);
+  }
+}
+
+// ========== PLACE ORDER ENDPOINT (with API key check, sanitisation, auto‑delete) ==========
 app.post('/api/place-order', async (req, res) => {
-  // Optional API key check (if you want to protect this endpoint as well)
+  // Check API key
   const apiKey = req.headers['x-api-key'];
   if (apiKey !== API_KEY) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -77,7 +99,7 @@ app.post('/api/place-order', async (req, res) => {
   const orderNo = loadCounter();
   saveCounter(orderNo + 1);
   
-  // SANITIZE each line to prevent HTML injection
+  // Sanitise every line
   const sanitizedLines = lines.map(line => escapeHtml(line));
   
   const msg = `🍽️ *NEW ORDER*\n🪑 *Table: ${table}*\n🔢 *#${orderNo}*\n${'─'.repeat(26)}\n${sanitizedLines.join('\n')}\n${'─'.repeat(26)}\n💰 *${total.toLocaleString()} br*\n⏰ ${time}\n\n_/accept ${orderNo} or /reject ${orderNo}_`;
@@ -89,23 +111,25 @@ app.post('/api/place-order', async (req, res) => {
       body: JSON.stringify({ chat_id: CHAT_ID, text: msg, parse_mode: 'Markdown' })
     });
     let orders = loadOrders();
-    orders[orderNo] = { 
-      status: 'pending', 
-      table, 
-      total, 
-      lines: sanitizedLines,   // store sanitized version
+    orders[orderNo] = {
+      status: 'pending',
+      table,
+      total,
+      lines: sanitizedLines,
       time,
-      createdAt: Date.now()    // for auto‑deletion later
+      createdAt: Date.now()
     };
     saveOrders(orders);
+    // Clean up old orders
+    deleteOldOrders();
     res.json({ ok: true, orderNo });
   } catch(e) {
-    console.error(e);
+    console.error('Place order error:', e);
     res.status(500).json({ error: 'Failed to send order' });
   }
 });
 
-// ========== WEBHOOK FOR ACCEPT/REJECT ==========
+// ========== TELEGRAM WEBHOOK (accept / reject) ==========
 app.post('/webhook', async (req, res) => {
   const message = req.body.message;
   if (!message || !message.text) return res.sendStatus(200);
@@ -128,7 +152,7 @@ app.post('/webhook', async (req, res) => {
       await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: `❌ Order #${orderNo} not found.` })
+        body: JSON.stringify({ chat_id: chatId, text: `❌ Order #${orderNo} not found. Use /status to see current orders.` })
       });
     }
   }
@@ -146,4 +170,4 @@ app.get('/api/orders', (req, res) => {
 
 // ========== START SERVER ==========
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
