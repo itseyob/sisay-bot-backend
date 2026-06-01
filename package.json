@@ -1,13 +1,15 @@
 {
-  "name": "sisay-bot-backend",
-  "version": "3.0.0",
-  "description": "Secure backend for Sisay Goat Tibs ordering system",
+  "name": "sisay-restaurant-system",
+  "version": "1.0.0",
+  "description": "Restaurant ordering system with staff panel, sessions, Telegram notifications",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "express-rate-limit": "^7.1.5"
+    "cors": "^2.8.5",
+    "body-parser": "^1.20.2",
+    "node-telegram-bot-api": "^0.61.0"
   }
 }
