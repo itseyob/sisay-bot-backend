@@ -1,173 +1,190 @@
 const express = require('express');
-const fs = require('fs');
-const path = require('path');
-const rateLimit = require('express-rate-limit');
+const cors = require('cors');
+const bodyParser = require('body-parser');
+const TelegramBot = require('node-telegram-bot-api');
 
 const app = express();
-app.use(express.json());
-
-// ========== HELPER: Escape HTML to prevent injection ==========
-function escapeHtml(str) {
-  if (!str) return str;
-  return str.replace(/[&<>]/g, function(m) {
-    if (m === '&') return '&amp;';
-    if (m === '<') return '&lt;';
-    if (m === '>') return '&gt;';
-    return m;
-  });
-}
-
-// ========== RATE LIMITING ==========
-const limiter = rateLimit({
-  windowMs: 15 * 1000,
-  max: 10,
-  message: { error: 'Too many orders, please wait.' }
-});
-app.use('/api/place-order', limiter);
-
-// ========== CORS ==========
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-API-Key');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  if (req.method === 'OPTIONS') return res.sendStatus(200);
-  next();
-});
+app.use(cors());
+app.use(bodyParser.json());
 
 // ========== ENVIRONMENT VARIABLES (set on Render) ==========
-const BOT_TOKEN = process.env.BOT_TOKEN || "8657162810:AAF1MVAqD72TmHj6UyVj9zWuGbJKsFcFSoI";
-const CHAT_ID = process.env.CHAT_ID || "7369177892";
-const API_KEY = process.env.API_KEY || "your-secret-key-change-this";
+const BOT_TOKEN = process.env.BOT_TOKEN;
+const CHAT_ID = process.env.CHAT_ID;
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || 'admin123';
+const API_KEY = process.env.API_KEY; // optional, not used but kept for compatibility
 
-// File paths
-const STATUS_FILE = path.join(__dirname, 'orders.json');
-const COUNTER_FILE = path.join(__dirname, 'counter.json');
-const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
-
-// ========== FILE HELPERS ==========
-function loadCounter() {
-  try {
-    if (!fs.existsSync(COUNTER_FILE)) return 1;
-    const data = fs.readFileSync(COUNTER_FILE, 'utf8');
-    return data ? JSON.parse(data).next : 1;
-  } catch(e) { return 1; }
+let bot = null;
+if (BOT_TOKEN && CHAT_ID) {
+  bot = new TelegramBot(BOT_TOKEN, { polling: false });
+  console.log('✅ Telegram bot enabled');
+} else {
+  console.warn('⚠️ Telegram disabled: missing BOT_TOKEN or CHAT_ID');
 }
 
-function saveCounter(next) {
-  fs.writeFileSync(COUNTER_FILE, JSON.stringify({ next }));
+// ========== In-memory storage ==========
+let sessions = {};        // { table: { sessionToken, active, createdAt } }
+let orders = [];
+let nextOrderId = 1000;
+let rateLimit = {};
+let lastOrderToken = null;
+
+function isValidTable(table) {
+  const t = parseInt(table);
+  return t >= 1 && t <= 20;
 }
 
-function loadOrders() {
-  try {
-    if (!fs.existsSync(STATUS_FILE)) return {};
-    const data = fs.readFileSync(STATUS_FILE, 'utf8');
-    return data ? JSON.parse(data) : {};
-  } catch(e) { return {}; }
-}
-
-function saveOrders(orders) {
-  fs.writeFileSync(STATUS_FILE, JSON.stringify(orders, null, 2));
-}
-
-// ========== AUTO-DELETE ORDERS OLDER THAN 7 DAYS ==========
-function deleteOldOrders() {
-  const orders = loadOrders();
+function checkRateLimit(table) {
   const now = Date.now();
-  let changed = false;
-  for (const [orderNo, order] of Object.entries(orders)) {
-    if (!order.createdAt) continue;
-    if (now - order.createdAt > SEVEN_DAYS_MS) {
-      delete orders[orderNo];
-      changed = true;
-    }
-  }
-  if (changed) {
-    saveOrders(orders);
-    console.log(`🧹 Deleted orders older than 7 days at ${new Date().toISOString()}`);
-  }
+  const last = rateLimit[table] || 0;
+  if (now - last < 20000) return false;
+  rateLimit[table] = now;
+  return true;
 }
 
-// ========== PLACE ORDER ENDPOINT (with API key check, sanitisation, auto‑delete) ==========
-app.post('/api/place-order', async (req, res) => {
-  // Check API key
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey !== API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  const { table, total, lines, time } = req.body;
-  const orderNo = loadCounter();
-  saveCounter(orderNo + 1);
-  
-  // Sanitise every line
-  const sanitizedLines = lines.map(line => escapeHtml(line));
-  
-  const msg = `🍽️ *NEW ORDER*\n🪑 *Table: ${table}*\n🔢 *#${orderNo}*\n${'─'.repeat(26)}\n${sanitizedLines.join('\n')}\n${'─'.repeat(26)}\n💰 *${total.toLocaleString()} br*\n⏰ ${time}\n\n_/accept ${orderNo} or /reject ${orderNo}_`;
-  
+async function sendTelegram(order) {
+  if (!bot) return;
+  const msg = `🆕 *New Order #${order.orderNumber}*\n🍽️ Table: ${order.table}\n📋 ${order.items.map(i => `${i.name} x${i.qty}`).join(', ')}\n💰 Total: ${order.total} br\n🕒 Status: ${order.status}`;
   try {
-    await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ chat_id: CHAT_ID, text: msg, parse_mode: 'Markdown' })
-    });
-    let orders = loadOrders();
-    orders[orderNo] = {
-      status: 'pending',
-      table,
-      total,
-      lines: sanitizedLines,
-      time,
-      createdAt: Date.now()
-    };
-    saveOrders(orders);
-    // Clean up old orders
-    deleteOldOrders();
-    res.json({ ok: true, orderNo });
-  } catch(e) {
-    console.error('Place order error:', e);
-    res.status(500).json({ error: 'Failed to send order' });
+    await bot.sendMessage(CHAT_ID, msg, { parse_mode: 'Markdown' });
+  } catch(e) { console.error('Telegram error:', e.message); }
+}
+
+// ========== CUSTOMER ENDPOINTS ==========
+app.get('/api/validate-session', (req, res) => {
+  const { table, session } = req.query;
+  if (!isValidTable(table)) return res.json({ valid: false });
+  const sess = sessions[table];
+  if (sess && sess.sessionToken === session && sess.active === true) {
+    return res.json({ valid: true });
   }
+  res.json({ valid: false });
 });
 
-// ========== TELEGRAM WEBHOOK (accept / reject) ==========
-app.post('/webhook', async (req, res) => {
-  const message = req.body.message;
-  if (!message || !message.text) return res.sendStatus(200);
-  const text = message.text.trim();
-  const chatId = message.chat.id;
-  const match = text.match(/^\/(accept|reject)\s+(\d+)$/i);
-  if (match) {
-    const action = match[1].toLowerCase();
-    const orderNo = parseInt(match[2]);
-    let orders = loadOrders();
-    if (orders[orderNo]) {
-      orders[orderNo].status = action === 'accept' ? 'accepted' : 'rejected';
-      saveOrders(orders);
-      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: `✅ Order #${orderNo} marked as ${action}ed.` })
-      });
-    } else {
-      await fetch(`https://api.telegram.org/bot${BOT_TOKEN}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, text: `❌ Order #${orderNo} not found. Use /status to see current orders.` })
-      });
-    }
+app.post('/api/place-order', (req, res) => {
+  const { table, session, items, total, orderToken } = req.body;
+  if (!isValidTable(table)) return res.status(400).json({ error: 'Invalid table' });
+  const sess = sessions[table];
+  if (!sess || sess.sessionToken !== session || !sess.active) {
+    return res.status(403).json({ error: 'Table not active' });
   }
-  res.sendStatus(200);
+  if (!checkRateLimit(table)) {
+    return res.status(429).json({ error: 'Please wait 20 seconds before ordering again' });
+  }
+  if (lastOrderToken === orderToken) {
+    return res.status(409).json({ error: 'Duplicate order' });
+  }
+  lastOrderToken = orderToken;
+  setTimeout(() => { lastOrderToken = null; }, 5000);
+
+  const orderId = nextOrderId++;
+  const orderNumber = `ORD-${orderId}`;
+  const newOrder = {
+    id: orderId,
+    orderNumber,
+    table: parseInt(table),
+    session,
+    items,
+    total,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  orders.push(newOrder);
+  sendTelegram(newOrder);
+  res.json({ ok: true, orderNumber });
 });
 
-// ========== GET ORDERS (protected by API key) ==========
 app.get('/api/orders', (req, res) => {
-  const apiKey = req.headers['x-api-key'];
-  if (apiKey !== API_KEY) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-  res.json(loadOrders());
+  const { table, session } = req.query;
+  if (!isValidTable(table)) return res.json({ orders: [] });
+  const sess = sessions[table];
+  if (!sess || sess.sessionToken !== session) return res.json({ orders: [] });
+  const userOrders = orders.filter(o => o.table == table && o.session === session);
+  res.json({ orders: userOrders });
 });
 
-// ========== START SERVER ==========
+app.post('/api/cancel-order/:orderId', (req, res) => {
+  const { table, session } = req.body;
+  const orderId = parseInt(req.params.orderId);
+  const order = orders.find(o => o.id === orderId);
+  if (!order) return res.status(404).json({ error: 'Not found' });
+  if (order.table != table || order.session !== session) return res.status(403).json({ error: 'Not allowed' });
+  const elapsed = Date.now() - new Date(order.createdAt).getTime();
+  if (elapsed > 30000) return res.status(400).json({ error: 'Cancellation window closed' });
+  if (order.status !== 'pending') return res.status(400).json({ error: 'Cannot cancel now' });
+  order.status = 'cancelled';
+  res.json({ ok: true });
+});
+
+// ========== STAFF ENDPOINTS (Admin) ==========
+const adminAuth = (req, res, next) => {
+  const pass = req.headers['x-admin-password'];
+  if (pass !== ADMIN_PASSWORD) return res.status(401).json({ error: 'Unauthorized' });
+  next();
+};
+
+app.post('/api/admin/activate-table', adminAuth, (req, res) => {
+  const { table } = req.body;
+  if (!isValidTable(table)) return res.status(400).json({ error: 'Invalid table' });
+  const sessionToken = Math.random().toString(36).substring(2, 8).toUpperCase();
+  sessions[table] = {
+    sessionToken,
+    active: true,
+    createdAt: Date.now()
+  };
+  res.json({ ok: true, session: sessionToken, qrUrl: `/?table=${table}&session=${sessionToken}` });
+});
+
+app.post('/api/admin/deactivate-table', adminAuth, (req, res) => {
+  const { table } = req.body;
+  if (sessions[table]) {
+    sessions[table].active = false;
+    delete sessions[table];
+  }
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/tables', adminAuth, (req, res) => {
+  const tableStatus = {};
+  for (let i = 1; i <= 20; i++) {
+    tableStatus[i] = sessions[i] ? { active: true, session: sessions[i].sessionToken } : { active: false };
+  }
+  res.json({ tables: tableStatus });
+});
+
+app.get('/api/admin/orders', adminAuth, (req, res) => {
+  const pending = orders.filter(o => o.status !== 'cancelled' && o.status !== 'served');
+  res.json({ orders: pending });
+});
+
+app.post('/api/admin/update-status', adminAuth, (req, res) => {
+  const { orderId, status } = req.body;
+  const order = orders.find(o => o.id == orderId);
+  if (!order) return res.status(404).json({ error: 'Order not found' });
+  order.status = status;
+  order.updatedAt = new Date().toISOString();
+  res.json({ ok: true });
+});
+
+app.get('/api/admin/analytics', adminAuth, (req, res) => {
+  const today = new Date().toISOString().split('T')[0];
+  const todaysOrders = orders.filter(o => o.createdAt.startsWith(today) && o.status !== 'cancelled');
+  const revenue = todaysOrders.reduce((sum, o) => sum + o.total, 0);
+  const itemCount = {};
+  todaysOrders.forEach(o => {
+    o.items.forEach(it => { itemCount[it.name] = (itemCount[it.name] || 0) + it.qty; });
+  });
+  const topItems = Object.entries(itemCount).sort((a,b) => b[1] - a[1]).slice(0,3).map(([name]) => name);
+  res.json({ todayOrders: todaysOrders.length, revenue, topItems });
+});
+
+// Serve static frontend files
+app.use(express.static('public'));
+
+// Redirect root to staff panel
+app.get('/', (req, res) => {
+  res.redirect('/staff.html');
+});
+
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server running on port ${PORT}`));
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
