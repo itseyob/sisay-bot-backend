@@ -132,7 +132,11 @@ app.post('/api/admin/activate-table', adminAuth, (req, res) => {
     active: true,
     createdAt: Date.now()
   };
-  res.json({ ok: true, session: sessionToken, qrUrl: `/?table=${table}&session=${sessionToken}` });
+ res.json({
+  ok: true,
+  session: sessionToken,
+  qrUrl: `/customer.html?table=${table}&session=${sessionToken}`
+});
 });
 
 app.post('/api/admin/deactivate-table', adminAuth, (req, res) => {
