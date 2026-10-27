@@ -78,7 +78,25 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);transition:b
   <div id="page-menu" class="page active"><div class="cat-tabs" id="catTabs"></div><div id="menuContent"></div></div>
   <div id="page-orders" class="page"><div id="ordersContent"></div></div>
 </div>
-<div id="inactiveOverlay" class="inactive-screen" style="display:flex;"><i class="ti ti-table-off"></i><h2>Table not active</h2><p>Please ask staff to activate your table and scan the QR code again.</p></div>
+<div id="inactiveOverlay" class="inactive-screen" style="display:flex;">
+  <i class="ti ti-tools-kitchen-2"></i>
+  <h2>Welcome to Sisay Goat Tibs</h2>
+  <p>Select your table and enter the code provided by our staff.</p>
+
+  <form id="sessionForm" style="width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;">
+    <label for="tableSelect">Table number</label>
+    <select id="tableSelect" required style="padding:13px;border-radius:10px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:16px;">
+      <option value="">Select a table</option>
+    </select>
+
+    <label for="sessionInput">Access code</label>
+    <input id="sessionInput" type="text" placeholder="Enter the code from staff" required autocomplete="off" style="padding:13px;border-radius:10px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:16px;text-transform:uppercase;">
+
+    <p id="sessionError" role="alert" style="color:var(--terra);font-size:13px;"></p>
+
+    <button type="submit" class="place-btn" id="sessionSubmit">Open Menu</button>
+  </form>
+</div>
 <div class="drawer" id="drawer"><div class="drawer-head"><h3>የእርስዎ ትዕዛዝ</h3><button class="close-btn" id="closeDrawer">✕</button></div><div id="cartItems"></div><div id="cartTotal" style="margin-top:16px; font-weight:700;"></div><button class="place-btn" id="checkoutBtn"><i class="ti ti-clipboard-check"></i> አረጋግጥ</button></div>
 <div class="overlay" id="overlay"></div>
 <div id="toastMsg" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--earth); color:white; padding:8px 20px; border-radius:40px; z-index:200; opacity:0; transition:0.2s; pointer-events:none;"></div>
