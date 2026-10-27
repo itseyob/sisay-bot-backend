@@ -128,7 +128,107 @@ const ti = (id) => ({ sp1:"Combo",sp2:"Beteseb",sp3:"Sisay Special",sp4:"Maheber
 
 
 async function checkSession() {
+  
+async function checkSession() {
   if (!TABLE_ID || !SESSION_TOKEN) {
+    showInactive(true);
+    return false;
+  }
+
+  try {
+    const res = await fetch(
+      `${API_BASE}/api/validate-session?table=${encodeURIComponent(TABLE_ID)}&session=${encodeURIComponent(SESSION_TOKEN)}`
+    );
+    const data = await res.json();
+
+    if (!data.valid) {
+      activeSessionValid = false;
+      document.getElementById('sessionError').innerText =
+        'Invalid code or inactive table. Please check with staff.';
+      showInactive(true);
+      return false;
+    }
+
+    activeSessionValid = true;
+    currentTable = TABLE_ID;
+    currentSession = SESSION_TOKEN;
+
+    document.getElementById('tableDisplay').innerText =
+      `ጠረጴዛ ${TABLE_ID}`;
+    document.getElementById('sessionBadge').innerText =
+      SESSION_TOKEN.slice(0, 6);
+
+    showInactive(false);
+
+    history.replaceState(
+      null,
+      '',
+      `/?table=${encodeURIComponent(TABLE_ID)}&session=${encodeURIComponent(SESSION_TOKEN)}`
+    );
+
+    await loadInitialOrders();
+    startPolling();
+    return true;
+
+  } catch (error) {
+    activeSessionValid = false;
+    document.getElementById('sessionError').innerText =
+      'Could not connect to the server. Please try again.';
+    showInactive(true);
+    return false;
+  }
+}
+
+
+// ---------- TABLE SELECTOR ----------
+const tableSelect = document.getElementById('tableSelect');
+const sessionInput = document.getElementById('sessionInput');
+const sessionForm = document.getElementById('sessionForm');
+const sessionSubmit = document.getElementById('sessionSubmit');
+
+// Populate the dropdown with Table 1 through Table 20.
+tableSelect.innerHTML = '<option value="">Select a table</option>';
+
+for (let table = 1; table <= 20; table++) {
+  const option = document.createElement('option');
+  option.value = String(table);
+  option.textContent = `Table ${table}`;
+  tableSelect.appendChild(option);
+}
+
+// Pre-fill details when opened from a QR URL.
+if (TABLE_ID) {
+  tableSelect.value = String(TABLE_ID);
+}
+if (SESSION_TOKEN) {
+  sessionInput.value = SESSION_TOKEN;
+}
+
+// Validate the customer's table and access code.
+sessionForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  TABLE_ID = parseInt(tableSelect.value, 10);
+  SESSION_TOKEN = sessionInput.value.trim().toUpperCase();
+
+  if (!TABLE_ID || !SESSION_TOKEN) {
+    document.getElementById('sessionError').innerText =
+      'Please select a table and enter your code.';
+    return;
+  }
+
+  document.getElementById('sessionError').innerText = '';
+  sessionSubmit.disabled = true;
+  sessionSubmit.innerText = 'Checking...';
+
+  try {
+    await checkSession();
+  } finally {
+    sessionSubmit.disabled = false;
+    sessionSubmit.innerText = 'Open Menu';
+  }
+});
+
     showInactive(true);
     return false;
   }
