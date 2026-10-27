@@ -126,15 +126,95 @@ const T = { am:{cats:{all:"ሁሉም",specials:"ልዩ",mains:"ዋና",veg:"ጾ�
 const t = (k) => T[lang][k] || T.en[k] || k;
 const ti = (id) => ({ sp1:"Combo",sp2:"Beteseb",sp3:"Sisay Special",sp4:"Maheberawi",sp5:"Emperor's Tibs", m1:"Shekla Tibs",m2:"Merek Tibs",m3:"Dulet",m4:"Kikil",m5:"Gas Light", v1:"Shiro",v2:"Beyeaynet",v3:"Firfir",v4:"Misir",v5:"Pasta", b1:"Soda",b2:"Beer",b3:"Tea",b4:"Coffee",b5:"Macchiato" }[id] || id);
 
+
 async function checkSession() {
-  if(!TABLE_ID || !SESSION_TOKEN) { showInactive(true); return false; }
+  if (!TABLE_ID || !SESSION_TOKEN) {
+    showInactive(true);
+    return false;
+  }
+
   try {
-    const res = await fetch(`${API_BASE}/api/validate-session?table=${TABLE_ID}&session=${SESSION_TOKEN}`);
+    const res = await fetch(
+      `${API_BASE}/api/validate-session?table=${encodeURIComponent(TABLE_ID)}&session=${encodeURIComponent(SESSION_TOKEN)}`
+    );
     const data = await res.json();
-    if(data.valid) { activeSessionValid = true; currentTable = TABLE_ID; currentSession = SESSION_TOKEN; document.getElementById('tableDisplay').innerText = `ጠረጴዛ ${TABLE_ID}`; document.getElementById('sessionBadge').innerText = SESSION_TOKEN.slice(0,6); showInactive(false); loadInitialOrders(); startPolling(); return true; }
-    else { showInactive(true); return false; }
-  } catch(e) { showInactive(true); return false; }
+
+    if (data.valid) {
+      activeSessionValid = true;
+      currentTable = TABLE_ID;
+      currentSession = SESSION_TOKEN;
+
+      document.getElementById('tableDisplay').innerText = `ጠረጴዛ ${TABLE_ID}`;
+      document.getElementById('sessionBadge').innerText = SESSION_TOKEN.slice(0, 6);
+
+      showInactive(false);
+
+      // Keep the table and session in the URL for reloads and QR access.
+      history.replaceState(
+        null,
+        '',
+        `/?table=${encodeURIComponent(TABLE_ID)}&session=${encodeURIComponent(SESSION_TOKEN)}`
+      );
+
+      loadInitialOrders();
+      startPolling();
+      return true;
+    }
+
+    activeSessionValid = false;
+    document.getElementById('sessionError').innerText =
+      'Invalid code or inactive table. Please check with staff.';
+    showInactive(true);
+    return false;
+  } catch (e) {
+    activeSessionValid = false;
+    document.getElementById('sessionError').innerText =
+      'Could not connect to the server. Please try again.';
+    showInactive(true);
+    return false;
+  }
+  checkSession();
+  
+const tableSelect = document.getElementById('tableSelect');
+const sessionInput = document.getElementById('sessionInput');
+const sessionForm = document.getElementById('sessionForm');
+
+// Create table choices 1–20.
+for (let table = 1; table <= 20; table++) {
+  const option = document.createElement('option');
+  option.value = table;
+  option.textContent = `Table ${table}`;
+  tableSelect.appendChild(option);
 }
+
+// Pre-fill the form if the customer arrives using a QR URL.
+if (TABLE_ID) tableSelect.value = String(TABLE_ID);
+if (SESSION_TOKEN) sessionInput.value = SESSION_TOKEN;
+
+sessionForm.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  TABLE_ID = parseInt(tableSelect.value, 10);
+  SESSION_TOKEN = sessionInput.value.trim().toUpperCase();
+
+  if (!TABLE_ID || !SESSION_TOKEN) {
+    document.getElementById('sessionError').innerText =
+      'Please select a table and enter your code.';
+    return;
+  }
+
+  document.getElementById('sessionError').innerText = '';
+  document.getElementById('sessionSubmit').disabled = true;
+  document.getElementById('sessionSubmit').innerText = 'Checking...';
+
+  await checkSession();
+
+  document.getElementById('sessionSubmit').disabled = false;
+  document.getElementById('sessionSubmit').innerText = 'Open Menu';
+});
+
+}
+
 function showInactive(show){ document.getElementById('main-app').style.display = show ? 'none' : 'block'; document.getElementById('inactiveOverlay').style.display = show ? 'flex' : 'none'; }
 function startPolling(){ setInterval(fetchLiveOrders, 4000); }
 async function loadInitialOrders(){ await fetchLiveOrders(); renderMenu(); renderCatTabs(); updateCartUI(); }
