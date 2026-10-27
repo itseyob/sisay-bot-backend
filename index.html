@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="am" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+<title>Sisay Goat Tibs · Premium Ordering</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700;800&family=Noto+Sans+Ethiopic:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;}
+:root{--sage:#7C8F6E;--sage-l:#A8BF9A;--sage-ll:#EAF0E5;--olive:#5C6B3A;--olive-l:#8A9B5A;--olive-ll:#E8EDDA;--terra:#B85C38;--terra-l:#D4845C;--terra-ll:#F5E0D5;--earth:#3D2B1A;--earth-m:#6B4C32;--earth-l:#C4A882;--earth-ll:#F7F2EC;--gold:#C49A3C;--gold-l:#E8C96A;--gold-ll:#FBF4E0;--bg:#F4EFE6;--surface:#FFFDF8;--surface2:#F0EBE0;--text:#2C1F0F;--text2:#6B4C32;--text3:#9A7B5A;--border:rgba(93,67,38,0.12);--border2:rgba(93,67,38,0.22);--font:'Inter',system-ui;--font-eth:'Noto Sans Ethiopic',sans-serif;--font-d:'Playfair Display',serif;--r:12px;--r-lg:18px;--r-xl:24px;--trans:0.22s cubic-bezier(.4,0,.2,1);}
+[data-theme=dark]{--bg:#1A1208;--surface:#241A0E;--surface2:#2E2214;--text:#F0E8D8;--text2:#C4A882;--text3:#7A5F42;--border:rgba(196,168,130,0.12);--border2:rgba(196,168,130,0.22);--earth-ll:#2E2214;--sage-ll:#1E2618;--olive-ll:#1E2210;--terra-ll:#2A1A10;--gold-ll:#241C08;}
+body{background:var(--bg);color:var(--text);font-family:var(--font);transition:background var(--trans),color var(--trans);min-height:100vh;}
+@keyframes fadeUp{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes popIn{from{opacity:0;transform:scale(0.82)}to{opacity:1;transform:scale(1)}}
+@keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.18)}}
+@keyframes breathe{0%,100%{opacity:0.6}50%{opacity:1}}
+@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}
+@keyframes float{0%,100%{transform:translateY(0) rotate(0deg)}50%{transform:translateY(-8px) rotate(3deg)}}
+@keyframes drawCircle{from{stroke-dashoffset:283}to{stroke-dashoffset:0}}
+@keyframes drawCheck{from{stroke-dashoffset:60}to{stroke-dashoffset:0}}
+@keyframes confetti{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--cx),var(--cy)) scale(0);opacity:0}}
+@keyframes countUp{from{opacity:0;transform:scale(0.5) translateY(10px)}to{opacity:1;transform:scale(1) translateY(0)}}
+@keyframes statusFlash{0%,100%{border-color:var(--border)}50%{border-color:var(--sage)}}
+.app{max-width:720px;margin:0 auto;padding:1rem 1rem 3rem;}
+.inactive-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:2rem;color:var(--text2);gap:1rem;}
+.inactive-screen i{font-size:64px;color:var(--terra);margin-bottom:0.5rem;}
+.hero{background:linear-gradient(135deg,var(--earth) 0%,#2a1e10 100%);border-radius:var(--r-xl);margin-bottom:1.5rem;overflow:hidden;position:relative;animation:fadeUp 0.5s ease;box-shadow:0 12px 30px rgba(0,0,0,0.15);}
+.hero-inner{position:relative;z-index:2;padding:1.4rem 1.5rem;}
+.hero-top{display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;}
+.resto-logo{display:flex;align-items:center;gap:12px;}
+.logo-badge{width:48px;height:48px;background:rgba(196,154,60,0.2);border-radius:50%;display:flex;align-items:center;justify-content:center;border:1px solid var(--gold);}
+.hero-title{font-family:var(--font-d);font-size:24px;font-weight:800;color:#F0E8D8;line-height:1.15;}
+.table-pill-modern{background:rgba(0,0,0,0.4);backdrop-filter:blur(4px);border-radius:40px;padding:6px 14px;font-size:13px;display:inline-flex;align-items:center;gap:8px;color:var(--gold-l);}
+.lang-sw{display:flex;gap:5px;}
+.lang-btn{border-radius:20px;border:0.5px solid rgba(255,255,255,0.18);background:rgba(255,255,255,0.08);color:rgba(255,255,255,0.7);font-size:11px;padding:5px 10px;cursor:pointer;}
+.lang-btn.active{background:var(--gold);border-color:var(--gold);color:var(--earth);}
+.page-nav{display:flex;gap:8px;margin-bottom:1.5rem;}
+.page-tab{flex:1;background:var(--surface);border:0.5px solid var(--border);border-radius:14px;padding:11px 8px;display:flex;align-items:center;justify-content:center;gap:6px;cursor:pointer;font-size:13px;color:var(--text2);transition:all 0.2s;}
+.page-tab.active{background:var(--olive);color:#fff;border-color:var(--olive);}
+.obadge{background:rgba(255,255,255,0.25);border-radius:10px;font-size:11px;padding:1px 7px;}
+.items-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:16px;margin-bottom:1.8rem;}
+.item-card{background:var(--surface);border-radius:var(--r-lg);padding:16px;transition:all 0.25s ease;box-shadow:0 2px 6px rgba(0,0,0,0.03);border:1px solid var(--border);position:relative;overflow:hidden;}
+.item-card:hover{transform:translateY(-4px);box-shadow:0 12px 24px rgba(0,0,0,0.08);border-color:var(--border2);}
+.item-badge{position:absolute;top:12px;right:12px;font-size:10px;padding:3px 10px;border-radius:20px;background:var(--gold-ll);color:var(--earth-m);font-weight:600;}
+.item-name{font-size:16px;font-weight:600;color:var(--text);font-family:var(--font-eth);margin-bottom:3px;}
+.item-price{font-size:15px;color:var(--terra);font-weight:700;margin:8px 0;}
+.add-btn{background:var(--terra);color:#fff;border:none;border-radius:10px;padding:10px;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;transition:all 0.15s;width:100%;margin-top:8px;}
+.cart-fab{background:var(--terra);color:#fff;border:none;border-radius:40px;padding:9px 18px;cursor:pointer;font-size:13px;display:flex;align-items:center;gap:8px;transition:all 0.2s;box-shadow:0 4px 12px rgba(0,0,0,0.1);}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:380px;max-width:92vw;background:rgba(var(--surface-rgb,255,253,248),0.96);backdrop-filter:blur(16px);border-left:1px solid var(--border);z-index:100;display:flex;flex-direction:column;padding:1.5rem;overflow-y:auto;transform:translateX(100%);transition:transform 0.3s cubic-bezier(.2,.9,.4,1.1);}
+.drawer.open{transform:translateX(0);}
+.cart-row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:0.5px solid var(--border);}
+.place-btn{width:100%;background:var(--olive);color:#fff;border:none;border-radius:14px;padding:15px;font-size:16px;font-weight:600;cursor:pointer;margin-top:16px;transition:all 0.2s;}
+.status-timeline{display:flex;gap:12px;margin:12px 0;flex-wrap:wrap;}
+.status-step{padding:4px 12px;border-radius:20px;font-size:12px;background:var(--surface2);color:var(--text3);}
+.status-step.active{background:var(--sage);color:white;}
+.cancel-order-btn{background:var(--terra-ll);border:1px solid var(--terra);color:var(--terra);border-radius:30px;padding:6px 12px;font-size:11px;cursor:pointer;margin-top:8px;}
+</style>
+</head>
+<body>
+<div id="main-app" style="display:none;">
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-top">
+        <div class="resto-logo">
+          <div class="logo-badge"><i class="ti ti-tools-kitchen-2" style="font-size:28px;color:var(--gold);"></i></div>
+          <div><div class="hero-title">Sisay Goat Tibs</div></div>
+        </div>
+        <div class="lang-sw"><button class="lang-btn active" data-lang="am">አማርኛ</button><button class="lang-btn" data-lang="en">English</button></div>
+      </div>
+      <div style="margin-top: 12px; display: flex; justify-content: space-between; align-items: center;">
+        <div class="table-pill-modern"><i class="ti ti-armchair"></i> <span id="tableDisplay">Table --</span> <span id="sessionBadge" style="font-family:monospace; margin-left:6px;"></span></div>
+        <button class="cart-fab" id="cart-fab"><i class="ti ti-shopping-cart"></i> <span id="cartCnt">0</span></button>
+      </div>
+    </div>
+  </div>
+  <div class="page-nav"><button class="page-tab active" data-page="menu"><i class="ti ti-tools-kitchen-2"></i> <span>የምግብ ዝርዝር</span></button><button class="page-tab" data-page="orders"><i class="ti ti-receipt"></i> <span>ትዕዛዞች</span><span class="obadge" id="ordersBadge">0</span></button></div>
+  <div id="page-menu" class="page active"><div class="cat-tabs" id="catTabs"></div><div id="menuContent"></div></div>
+  <div id="page-orders" class="page"><div id="ordersContent"></div></div>
+</div>
+<div id="inactiveOverlay" class="inactive-screen" style="display:flex;"><i class="ti ti-table-off"></i><h2>Table not active</h2><p>Please ask staff to activate your table and scan the QR code again.</p></div>
+<div class="drawer" id="drawer"><div class="drawer-head"><h3>የእርስዎ ትዕዛዝ</h3><button class="close-btn" id="closeDrawer">✕</button></div><div id="cartItems"></div><div id="cartTotal" style="margin-top:16px; font-weight:700;"></div><button class="place-btn" id="checkoutBtn"><i class="ti ti-clipboard-check"></i> አረጋግጥ</button></div>
+<div class="overlay" id="overlay"></div>
+<div id="toastMsg" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--earth); color:white; padding:8px 20px; border-radius:40px; z-index:200; opacity:0; transition:0.2s; pointer-events:none;"></div>
+<script>
+// ---------- CONFIG ----------
+const API_BASE = window.location.origin; // backend serves same origin (proxy or integrated)
+const urlParams = new URLSearchParams(window.location.search);
+const TABLE_ID = parseInt(urlParams.get('table'));
+const SESSION_TOKEN = urlParams.get('session');
+let activeSessionValid = false;
+let currentTable = TABLE_ID;
+let currentSession = SESSION_TOKEN;
+let lang = 'am';
+let cart = {};
+let kgSel = {};
+let ordersList = [];
+let orderCancelTimers = {};
+
+// Menu data
+const KG = new Set(["m1","m2","m3","m5"]);
+const KG_OPTIONS = [0.5, 1, 1.5, 2];
+const SP = new Set(["sp1","sp2","sp3","sp4","sp5"]);
+const VG = new Set(["v1","v2","v3","v4","v5"]);
+const CATS = { specials:{ids:["sp1","sp2","sp3","sp4","sp5"]}, mains:{ids:["m1","m2","m3","m4","m5"]}, veg:{ids:["v1","v2","v3","v4","v5"]}, bev:{ids:["b1","b2","b3","b4","b5"]} };
+const BP = { sp1:2400,sp2:1850,sp3:1295,sp4:1575,sp5:1950, m1:1400,m2:1350,m3:895,m4:675,m5:950, v1:150,v2:260,v3:120,v4:130,v5:100, b1:50,b2:140,b3:20,b4:30,b5:40 };
+const T = { am:{cats:{all:"ሁሉም",specials:"ልዩ",mains:"ዋና",veg:"ጾም",bev:"መጠጥ"}, add:"ጨምር", total:"ጠቅላላ", place:"አረጋግጥ", empty:"ቅርጫት ባዶ", prep:"እየተዘጋጀ", ready:"ዝግጁ", rejected:"ተቀባይነት አላገኘም", approved:"ተቀባይነት አገኘ", kglbl:"ክብደት (ኪግ)", cancel:"ሰርዝ", estimated:"የሚጠበቅ ጊዜ", min:"ደቂቃ"}, en:{cats:{all:"All",specials:"Specials",mains:"Mains",veg:"Veg",bev:"Drinks"}, add:"Add", total:"Total", place:"Confirm", empty:"Cart empty", prep:"Preparing", ready:"Ready", rejected:"Rejected", approved:"Approved", kglbl:"Weight (kg)", cancel:"Cancel", estimated:"Est. wait", min:"min"} };
+const t = (k) => T[lang][k] || T.en[k] || k;
+const ti = (id) => ({ sp1:"Combo",sp2:"Beteseb",sp3:"Sisay Special",sp4:"Maheberawi",sp5:"Emperor's Tibs", m1:"Shekla Tibs",m2:"Merek Tibs",m3:"Dulet",m4:"Kikil",m5:"Gas Light", v1:"Shiro",v2:"Beyeaynet",v3:"Firfir",v4:"Misir",v5:"Pasta", b1:"Soda",b2:"Beer",b3:"Tea",b4:"Coffee",b5:"Macchiato" }[id] || id);
+
+async function checkSession() {
+  if(!TABLE_ID || !SESSION_TOKEN) { showInactive(true); return false; }
+  try {
+    const res = await fetch(`${API_BASE}/api/validate-session?table=${TABLE_ID}&session=${SESSION_TOKEN}`);
+    const data = await res.json();
+    if(data.valid) { activeSessionValid = true; currentTable = TABLE_ID; currentSession = SESSION_TOKEN; document.getElementById('tableDisplay').innerText = `ጠረጴዛ ${TABLE_ID}`; document.getElementById('sessionBadge').innerText = SESSION_TOKEN.slice(0,6); showInactive(false); loadInitialOrders(); startPolling(); return true; }
+    else { showInactive(true); return false; }
+  } catch(e) { showInactive(true); return false; }
+}
+function showInactive(show){ document.getElementById('main-app').style.display = show ? 'none' : 'block'; document.getElementById('inactiveOverlay').style.display = show ? 'flex' : 'none'; }
+function startPolling(){ setInterval(fetchLiveOrders, 4000); }
+async function loadInitialOrders(){ await fetchLiveOrders(); renderMenu(); renderCatTabs(); updateCartUI(); }
+async function fetchLiveOrders(){
+  if(!activeSessionValid) return;
+  try{
+    const res = await fetch(`${API_BASE}/api/orders?table=${currentTable}&session=${currentSession}`);
+    const data = await res.json();
+    ordersList = data.orders || [];
+    document.getElementById('ordersBadge').innerText = ordersList.length;
+    renderOrdersList();
+    for(let o of ordersList){ if(o.status === 'pending' && !orderCancelTimers[o.id] && (Date.now() - new Date(o.createdAt).getTime() < 30000)) scheduleCancelTimer(o); }
+  }catch(e){}
+}
+function scheduleCancelTimer(order){ if(orderCancelTimers[order.id]) clearTimeout(orderCancelTimers[order.id]); orderCancelTimers[order.id] = setTimeout(()=>{ cancelOrder(order.id); }, 30000 - (Date.now() - new Date(order.createdAt).getTime())); }
+async function cancelOrder(orderId){
+  try{
+    await fetch(`${API_BASE}/api/cancel-order/${orderId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ table:currentTable, session:currentSession }) });
+    fetchLiveOrders();
+    showToast("Order cancelled", 2000);
+  }catch(e){}
+}
+function renderOrdersList(){
+  const container = document.getElementById('ordersContent');
+  if(!ordersList.length){ container.innerHTML = `<div class="orders-empty"><i class="ti ti-receipt-off"></i><p>${t('empty')}</p></div>`; return; }
+  container.innerHTML = ordersList.map(o => {
+    let statusText = { pending:'🟡 '+t('prep'), approved:'🟢 '+t('approved'), preparing:'👨‍🍳 '+t('prep'), ready:'✅ '+t('ready'), served:'✔ Served', rejected:'❌ '+t('rejected') }[o.status] || o.status;
+    let canCancel = (o.status === 'pending' && (Date.now() - new Date(o.createdAt).getTime() < 30000));
+    return `<div class="order-card" style="margin-bottom:12px; padding:14px; background:var(--surface); border-radius:16px;"><div style="display:flex;justify-content:space-between;"><b>#${o.orderNumber}</b><span>${statusText}</span></div><div>${o.items.map(i=>`${i.name} ×${i.qty}`).join(', ')}</div><div><strong>${o.total} br</strong></div>${canCancel ? `<button class="cancel-order-btn" onclick="cancelOrder('${o.id}')"><i class="ti ti-x"></i> ${t('cancel')}</button>` : ''}<div class="status-timeline">${['pending','approved','preparing','ready','served'].map(s => `<span class="status-step ${(['served','ready','preparing','approved','pending'].indexOf(o.status) >= ['served','ready','preparing','approved','pending'].indexOf(s) ? 'active' : '')}">${s}</span>`).join('')}</div></div>`;
+  }).join('');
+}
+async function placeOrder(){
+  if(Object.keys(cart).length===0) return;
+  const total = Object.values(cart).reduce((s,i)=>s + i.price * i.qty,0);
+  const lines = Object.entries(cart).map(([id,it])=>`${it.name}${it.kg?` (${it.kg}kg)`:''} ×${it.qty}`);
+  const orderToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
+  try{
+    const res = await fetch(`${API_BASE}/api/place-order`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ table:currentTable, session:currentSession, items:Object.entries(cart).map(([id,it])=>({ id, name:it.name, qty:it.qty, kg:it.kg, price:it.price })), total, lines, orderToken }) });
+    const data = await res.json();
+    if(data.ok){ showSuccessModal(data.orderNumber); cart = {}; kgSel = {}; updateCartUI(); renderMenu(); fetchLiveOrders(); }
+    else showToast(data.error || "Failed", 2000);
+  }catch(e){ showToast("Network error", 2000); }
+}
+function showSuccessModal(orderNo){
+  const modal = document.createElement('div'); modal.className = 'modal-wrap show'; modal.style.display='flex'; modal.innerHTML = `<div class="modal" style="text-align:center"><i class="ti ti-check" style="font-size:48px;color:var(--sage)"></i><h3>${t('ready')}</h3><div style="font-size:28px;font-weight:800">#${orderNo}</div><p>${t('estimated')}: 15-20 ${t('min')}</p><button class="place-btn" style="margin-top:12px" onclick="this.closest('.modal-wrap').remove()">OK</button></div>`;
+  document.body.appendChild(modal); setTimeout(()=>modal.remove(), 4000);
+}
+function updateCartUI(){ const cnt = Object.values(cart).reduce((s,i)=>s+i.qty,0); document.getElementById('cartCnt').innerText = cnt; const itemsDiv = document.getElementById('cartItems'); if(cnt===0){ itemsDiv.innerHTML = `<div class="empty-cart">${t('empty')}</div>`; document.getElementById('cartTotal').innerHTML = ''; return; } let html=''; Object.entries(cart).forEach(([id,it])=>{ html+=`<div class="cart-row"><div><b>${it.name}</b> ${it.kg?`(${it.kg}kg)`:''} x${it.qty}</div><div>${(it.price*it.qty).toLocaleString()} br <button onclick="removeCartItem('${id}')" style="background:none;border:none;color:red;margin-left:8px"><i class="ti ti-trash"></i></button></div></div>`; }); itemsDiv.innerHTML = html; const total = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0); document.getElementById('cartTotal').innerHTML = `<div style="border-top:1px solid var(--border);padding-top:12px;font-size:18px;">${t('total')}: ${total.toLocaleString()} br</div>`; }
+function removeCartItem(id){ delete cart[id]; updateCartUI(); renderMenu(); }
+function addToCart(id){ const isKg = KG.has(id); const selKg = isKg ? (kgSel[id] || 1) : 1; const price = isKg ? BP[id] * selKg : BP[id]; if(cart[id]) cart[id].qty +=1; else cart[id] = { name: ti(id), price, qty:1, kg: isKg ? selKg : null }; updateCartUI(); renderMenu(); showToast(`+ ${ti(id)}`, 800); }
+function renderMenu(){ const cat = document.querySelector('.ctab.active')?.dataset.cat || 'all'; let ids = cat==='all'? Object.values(CATS).flatMap(c=>c.ids) : CATS[cat]?.ids || []; const container = document.getElementById('menuContent'); container.innerHTML = `<div class="items-grid">`+ids.map(id=>{ const isKg = KG.has(id); const priceDisp = isKg ? `${BP[id]} br/kg` : `${BP[id]} br`; const badge = SP.has(id) ? '<span class="item-badge">🔥 ልዩ</span>' : (VG.has(id)?'<span class="item-badge">🌱 Veg</span>':''); return `<div class="item-card">${badge}<div class="item-name">${ti(id)}</div><div class="item-price">${priceDisp}</div>${isKg?`<div style="display:flex;gap:6px;margin:8px 0">${KG_OPTIONS.map(k=>`<button class="kg-btn${kgSel[id]===k?' sel':''}" onclick="event.stopPropagation(); kgSel['${id}']=${k}; renderMenu();">${k}kg</button>`).join('')}</div>`:''}<button class="add-btn" onclick="addToCart('${id}')"><i class="ti ti-plus"></i> ${t('add')}</button></div>`; }).join('')+`</div>`; }
+function renderCatTabs(){ const catsDiv = document.getElementById('catTabs'); catsDiv.innerHTML = Object.keys(CATS).map(c=>`<button class="ctab ${c==='all'?'active':''}" data-cat="${c}">${T[lang].cats[c]||c}</button>`).join(''); document.querySelectorAll('.ctab').forEach(btn=>btn.onclick=()=>{ document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderMenu(); }); }
+function showToast(msg, duration){ const toast = document.getElementById('toastMsg'); toast.innerText = msg; toast.style.opacity='1'; setTimeout(()=>toast.style.opacity='0', duration); }
+document.getElementById('checkoutBtn').onclick = placeOrder;
+document.getElementById('cart-fab').onclick = () => document.getElementById('drawer').classList.add('open');
+document.getElementById('closeDrawer').onclick = () => document.getElementById('drawer').classList.remove('open');
+document.querySelectorAll('.lang-btn').forEach(btn=>btn.onclick=()=>{ lang = btn.getAttribute('data-lang'); document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderMenu(); updateCartUI(); renderOrdersList(); document.getElementById('tableDisplay').innerHTML = `ጠረጴዛ ${currentTable}`; });
+document.querySelectorAll('.page-tab').forEach(tab=>tab.onclick=()=>{ const page = tab.getAttribute('data-page'); document.querySelectorAll('.page').forEach(p=>p.classList.remove('active')); document.getElementById(`page-${page}`).classList.add('active'); document.querySelectorAll('.page-tab').forEach(t=>t.classList.remove('active')); tab.classList.add('active'); if(page==='orders') fetchLiveOrders(); });
+checkSession();
+window.removeCartItem = removeCartItem; window.addToCart = addToCart; window.cancelOrder = cancelOrder;
+</script>
+</body>
+</html>
