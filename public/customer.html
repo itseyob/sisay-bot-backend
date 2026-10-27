@@ -173,14 +173,23 @@ async function checkSession() {
     showInactive(true);
     return false;
   }
-  const tableSelect = document.getElementById('tableSelect');
+const tableSelect = document.getElementById('tableSelect');
 
-for (let table = 1; table <= 20; table++) {
-  const option = document.createElement('option');
-  option.value = String(table);
-  option.textContent = `Table ${table}`;
-  tableSelect.appendChild(option);
+if (tableSelect) {
+  tableSelect.innerHTML = '<option value="">Select a table</option>';
+
+  for (let table = 1; table <= 20; table++) {
+    const option = document.createElement('option');
+    option.value = String(table);
+    option.textContent = `Table ${table}`;
+    tableSelect.appendChild(option);
+  }
+
+  console.log('Tables loaded:', tableSelect.options.length - 1);
+} else {
+  console.error('Could not find the tableSelect element.');
 }
+
   checkSession()
   
 const tableSelect = document.getElementById('tableSelect');
