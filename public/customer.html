@@ -125,9 +125,6 @@ const BP = { sp1:2400,sp2:1850,sp3:1295,sp4:1575,sp5:1950, m1:1400,m2:1350,m3:89
 const T = { am:{cats:{all:"ሁሉም",specials:"ልዩ",mains:"ዋና",veg:"ጾም",bev:"መጠጥ"}, add:"ጨምር", total:"ጠቅላላ", place:"አረጋግጥ", empty:"ቅርጫት ባዶ", prep:"እየተዘጋጀ", ready:"ዝግጁ", rejected:"ተቀባይነት አላገኘም", approved:"ተቀባይነት አገኘ", kglbl:"ክብደት (ኪግ)", cancel:"ሰርዝ", estimated:"የሚጠበቅ ጊዜ", min:"ደቂቃ"}, en:{cats:{all:"All",specials:"Specials",mains:"Mains",veg:"Veg",bev:"Drinks"}, add:"Add", total:"Total", place:"Confirm", empty:"Cart empty", prep:"Preparing", ready:"Ready", rejected:"Rejected", approved:"Approved", kglbl:"Weight (kg)", cancel:"Cancel", estimated:"Est. wait", min:"min"} };
 const t = (k) => T[lang][k] || T.en[k] || k;
 const ti = (id) => ({ sp1:"Combo",sp2:"Beteseb",sp3:"Sisay Special",sp4:"Maheberawi",sp5:"Emperor's Tibs", m1:"Shekla Tibs",m2:"Merek Tibs",m3:"Dulet",m4:"Kikil",m5:"Gas Light", v1:"Shiro",v2:"Beyeaynet",v3:"Firfir",v4:"Misir",v5:"Pasta", b1:"Soda",b2:"Beer",b3:"Tea",b4:"Coffee",b5:"Macchiato" }[id] || id);
-
-
-async function checkSession() {
   
 async function checkSession() {
   if (!TABLE_ID || !SESSION_TOKEN) {
