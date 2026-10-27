@@ -277,8 +277,29 @@ function updateCartUI(){ const cnt = Object.values(cart).reduce((s,i)=>s+i.qty,0
 function removeCartItem(id){ delete cart[id]; updateCartUI(); renderMenu(); }
 function addToCart(id){ const isKg = KG.has(id); const selKg = isKg ? (kgSel[id] || 1) : 1; const price = isKg ? BP[id] * selKg : BP[id]; if(cart[id]) cart[id].qty +=1; else cart[id] = { name: ti(id), price, qty:1, kg: isKg ? selKg : null }; updateCartUI(); renderMenu(); showToast(`+ ${ti(id)}`, 800); }
 function renderMenu(){ const cat = document.querySelector('.ctab.active')?.dataset.cat || 'all'; let ids = cat==='all'? Object.values(CATS).flatMap(c=>c.ids) : CATS[cat]?.ids || []; const container = document.getElementById('menuContent'); container.innerHTML = `<div class="items-grid">`+ids.map(id=>{ const isKg = KG.has(id); const priceDisp = isKg ? `${BP[id]} br/kg` : `${BP[id]} br`; const badge = SP.has(id) ? '<span class="item-badge">🔥 ልዩ</span>' : (VG.has(id)?'<span class="item-badge">🌱 Veg</span>':''); return `<div class="item-card">${badge}<div class="item-name">${ti(id)}</div><div class="item-price">${priceDisp}</div>${isKg?`<div style="display:flex;gap:6px;margin:8px 0">${KG_OPTIONS.map(k=>`<button class="kg-btn${kgSel[id]===k?' sel':''}" onclick="event.stopPropagation(); kgSel['${id}']=${k}; renderMenu();">${k}kg</button>`).join('')}</div>`:''}<button class="add-btn" onclick="addToCart('${id}')"><i class="ti ti-plus"></i> ${t('add')}</button></div>`; }).join('')+`</div>`; }
-function renderCatTabs(){ const catsDiv = document.getElementById('catTabs'); catsDiv.innerHTML = Object.keys(CATS).map(c=>`<button class="ctab ${c==='all'?'active':''}" data-cat="${c}">${T[lang].cats[c]||c}</button>`).join(''); document.querySelectorAll('.ctab').forEach(btn=>btn.onclick=()=>{ document.querySelectorAll('.ctab').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderMenu(); }); }
-function showToast(msg, duration){ const toast = document.getElementById('toastMsg'); toast.innerText = msg; toast.style.opacity='1'; setTimeout(()=>toast.style.opacity='0', duration); }
+function renderCatTabs() {
+  const catsDiv = document.getElementById('catTabs');
+
+  const categories = ['all', ...Object.keys(CATS)];
+
+  catsDiv.innerHTML = categories.map(category =>
+    `<button class="ctab ${category === 'all' ? 'active' : ''}"
+      data-cat="${category}">
+      ${T[lang].cats[category] || category}
+    </button>`
+  ).join('');
+
+  catsDiv.querySelectorAll('.ctab').forEach(button => {
+    button.onclick = () => {
+      catsDiv.querySelectorAll('.ctab').forEach(item =>
+        item.classList.remove('active')
+      );
+
+      button.classList.add('active');
+      renderMenu();
+    };
+  });
+}
 document.getElementById('checkoutBtn').onclick = placeOrder;
 document.getElementById('cart-fab').onclick = () => document.getElementById('drawer').classList.add('open');
 document.getElementById('closeDrawer').onclick = () => document.getElementById('drawer').classList.remove('open');
