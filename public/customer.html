@@ -173,7 +173,15 @@ async function checkSession() {
     showInactive(true);
     return false;
   }
-  checkSession();
+  const tableSelect = document.getElementById('tableSelect');
+
+for (let table = 1; table <= 20; table++) {
+  const option = document.createElement('option');
+  option.value = String(table);
+  option.textContent = `Table ${table}`;
+  tableSelect.appendChild(option);
+}
+  checkSession()
   
 const tableSelect = document.getElementById('tableSelect');
 const sessionInput = document.getElementById('sessionInput');
