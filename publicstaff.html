@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sisay Staff Panel</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css">
+    <style>
+        *{box-sizing:border-box;margin:0;padding:0;}
+        body{background:#1a1208;font-family:system-ui;padding:20px;color:#f0e8d8;}
+        .container{max-width:1400px;margin:0 auto;}
+        .login-box{max-width:400px;margin:100px auto;background:#2e2214;padding:30px;border-radius:24px;}
+        input,button{padding:12px;border-radius:12px;border:none;margin:8px 0;width:100%;}
+        button{background:#b85c38;color:white;cursor:pointer;font-weight:bold;}
+        .dashboard{display:none;}
+        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;margin:20px 0;}
+        .table-card{background:#241a0e;border-radius:20px;padding:16px;border:1px solid #c49a3c40;}
+        .active{background:#5c6b3a20;border-left:4px solid #8a9b5a;}
+        .btn-sm{padding:6px 12px;font-size:12px;width:auto;margin:4px;}
+        .order-card{background:#241a0e;border-radius:16px;padding:16px;margin-bottom:12px;}
+        .status-btns{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+        h2,h3{margin:24px 0 12px;}
+        hr{margin:20px 0;border-color:#3d2b1a;}
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="loginDiv" class="login-box">
+        <h2>Staff Login</h2>
+        <input type="password" id="adminPass" placeholder="Admin Password">
+        <button onclick="login()">Login</button>
+    </div>
+    <div id="dashboard" class="dashboard">
+        <h1>🪑 Sisay Staff Dashboard</h1>
+        <div style="display:flex;gap:20px;flex-wrap:wrap;">
+            <div class="table-card" style="flex:2"><h3>Tables</h3><div id="tablesGrid" class="grid"></div></div>
+            <div class="table-card" style="flex:3"><h3>📋 Live Orders</h3><div id="ordersList"></div></div>
+        </div>
+        <hr>
+        <div class="table-card"><h3>📊 Today's Analytics</h3><div id="analytics"></div></div>
+    </div>
+</div>
+<script>
+    let adminPassword = '';
+    function login() {
+        const pwd = document.getElementById('adminPass').value;
+        fetch('/api/admin/tables', { headers: { 'x-admin-password': pwd } })
+            .then(res => { if(res.ok) { adminPassword = pwd; document.getElementById('loginDiv').style.display='none'; document.getElementById('dashboard').style.display='block'; loadAll(); setInterval(loadAll, 5000); } else alert('Wrong password'); });
+    }
+    async function loadAll() { await loadTables(); await loadOrders(); await loadAnalytics(); }
+    async function loadTables() {
+        const res = await fetch('/api/admin/tables', { headers: { 'x-admin-password': adminPassword } });
+        const data = await res.json();
+        const container = document.getElementById('tablesGrid');
+        container.innerHTML = Object.entries(data.tables).map(([t, info]) => `
+            <div class="table-card ${info.active?'active':''}">
+                <div><strong>Table ${t}</strong></div>
+                <div>${info.active ? '🟢 Active' : '🔴 Inactive'}</div>
+                <div>${info.session ? `Session: ${info.session}` : ''}</div>
+                <div><button class="btn-sm" onclick="activateTable(${t})">Activate</button>
+                <button class="btn-sm" onclick="deactivateTable(${t})">Deactivate</button></div>
+            </div>
+        `).join('');
+    }
+    async function activateTable(table) {
+        await fetch('/api/admin/activate-table', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':adminPassword}, body:JSON.stringify({table}) });
+        loadTables();
+    }
+    async function deactivateTable(table) {
+        await fetch('/api/admin/deactivate-table', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':adminPassword}, body:JSON.stringify({table}) });
+        loadTables();
+    }
+    async function loadOrders() {
+        const res = await fetch('/api/admin/orders', { headers: { 'x-admin-password': adminPassword } });
+        const data = await res.json();
+        const container = document.getElementById('ordersList');
+        if(!data.orders.length) { container.innerHTML = '<p>No pending orders</p>'; return; }
+        container.innerHTML = data.orders.map(o => `
+            <div class="order-card">
+                <div><b>${o.orderNumber}</b> | Table ${o.table} | ${o.status}</div>
+                <div>${o.items.map(i=>`${i.name} x${i.qty}`).join(', ')} | Total: ${o.total} br</div>
+                <div class="status-btns">
+                    ${['approved','preparing','ready','served'].map(s => `<button class="btn-sm" onclick="updateStatus(${o.id},'${s}')">${s}</button>`).join('')}
+                    <button class="btn-sm" style="background:#b85c38" onclick="updateStatus(${o.id},'rejected')">Reject</button>
+                </div>
+            </div>
+        `).join('');
+    }
+    async function updateStatus(orderId, status) {
+        await fetch('/api/admin/update-status', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':adminPassword}, body:JSON.stringify({orderId, status}) });
+        loadOrders();
+    }
+    async function loadAnalytics() {
+        const res = await fetch('/api/admin/analytics', { headers: { 'x-admin-password': adminPassword } });
+        const data = await res.json();
+        document.getElementById('analytics').innerHTML = `
+            <p>📅 Today's Orders: ${data.todayOrders}</p>
+            <p>💰 Revenue: ${data.revenue} br</p>
+            <p>🔥 Top items: ${data.topItems.join(', ') || 'none'}</p>
+        `;
+    }
+</script>
+</body>
+</html>
