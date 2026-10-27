@@ -104,8 +104,8 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);transition:b
 // ---------- CONFIG ----------
 const API_BASE = window.location.origin; // backend serves same origin (proxy or integrated)
 const urlParams = new URLSearchParams(window.location.search);
-const TABLE_ID = parseInt(urlParams.get('table'));
-const SESSION_TOKEN = urlParams.get('session');
+let TABLE_ID = parseInt(urlParams.get('table')) || null;
+let SESSION_TOKEN = urlParams.get('session') || '';
 let activeSessionValid = false;
 let currentTable = TABLE_ID;
 let currentSession = SESSION_TOKEN;
