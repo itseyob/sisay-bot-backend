@@ -52,7 +52,7 @@ let sessions = {};        // { table: { sessionToken, active, createdAt } }
 let orders = [];
 let nextOrderId = 1000;
 let rateLimit = {};
-let lastOrderToken = null;
+const processedOrderTokens = new Map();
 
 function isValidTable(table) {
   const t = parseInt(table);
@@ -151,15 +151,20 @@ app.post('/api/place-order', (req, res) => {
     });
   }
 
-  if (lastOrderToken === orderToken) {
-    return res.status(409).json({ error: 'Duplicate order' });
+ if (processedOrderTokens.has(orderToken)) {
+  return res.status(409).json({ error: 'Duplicate order' });
+}
+
+processedOrderTokens.set(orderToken, Date.now());
+
+// Remove expired tokens
+setTimeout(() => {
+  const tokenTime = processedOrderTokens.get(orderToken);
+
+  if (tokenTime && Date.now() - tokenTime >= 10 * 60 * 1000) {
+    processedOrderTokens.delete(orderToken);
   }
-
-  lastOrderToken = orderToken;
-  setTimeout(() => {
-    if (lastOrderToken === orderToken) lastOrderToken = null;
-  }, 5000);
-
+}, 10 * 60 * 1000);
   const total = verifiedItems.reduce(
     (sum, item) => sum + item.price * item.qty,
     0
