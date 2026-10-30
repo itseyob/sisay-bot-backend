@@ -152,7 +152,7 @@ let orderCancelTimers = {};
 let menuItems = [];
 const KG_OPTIONS = [0.5, 1, 1.5, 2];
 
-const T = {
+const t = (k) => T[lang][k] || T.en[k] || k;
   am: {
     cats: {
       all: "ሁሉም",
