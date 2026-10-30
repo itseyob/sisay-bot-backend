@@ -145,14 +145,14 @@ app.post('/api/place-order', (req, res) => {
     });
   }
 
-  if (!checkRateLimit(table)) {
-    return res.status(429).json({
-      error: 'Please wait 20 seconds before ordering again'
-    });
-  }
-
  if (processedOrderTokens.has(orderToken)) {
   return res.status(409).json({ error: 'Duplicate order' });
+}
+
+if (!checkRateLimit(table)) {
+  return res.status(429).json({
+    error: 'Please wait 20 seconds before ordering again'
+  });
 }
 
 processedOrderTokens.set(orderToken, Date.now());
