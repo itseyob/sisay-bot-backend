@@ -100,16 +100,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);transition:b
 </div>
 <div id="inactiveOverlay" class="inactive-screen" style="display:flex;">
   <i class="ti ti-tools-kitchen-2"></i>
-  <h2>Welcome to Sisay Goat Tibs</h2>
-  <p>Select your table and enter the code provided by our staff.</p>
+  <h2 id="welcomeText">Welcome to Sisay Goat Tibs</h2>
+  <p id="sessionHelpText">Select your table and enter the code provided by our staff.</p>
 
   <form id="sessionForm" style="width:100%;max-width:340px;display:flex;flex-direction:column;gap:12px;">
-    <label for="tableSelect">Table number</label>
+    <label for="tableSelect" id="tableLabel">Table number</label>
+
     <select id="tableSelect" required style="padding:13px;border-radius:10px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:16px;">
-      <option value="">Select a table</option>
+      <option value="" id="tablePlaceholder">Select a table</option>
     </select>
 
-    <label for="sessionInput">Access code</label>
+    <label for="sessionInput" id="accessCodeLabel">Access code</label>
+
     <input id="sessionInput" type="text" placeholder="Enter the code from staff" required autocomplete="off" style="padding:13px;border-radius:10px;border:1px solid var(--border2);background:var(--surface);color:var(--text);font-size:16px;text-transform:uppercase;">
 
     <p id="sessionError" role="alert" style="color:var(--terra);font-size:13px;"></p>
@@ -117,7 +119,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);transition:b
     <button type="submit" class="place-btn" id="sessionSubmit">Open Menu</button>
   </form>
 </div>
-<div class="drawer" id="drawer"><div class="drawer-head"><h3>የእርስዎ ትዕዛዝ</h3><button class="close-btn" id="closeDrawer">✕</button></div><div id="cartItems"></div><div id="cartTotal" style="margin-top:16px; font-weight:700;"></div><button class="place-btn" id="checkoutBtn"><i class="ti ti-clipboard-check"></i> አረጋግጥ</button></div>
+<div class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h3 id="cartTitle">የእርስዎ ትዕዛዝ</h3>
+    <button class="close-btn" id="closeDrawer">✕</button>
+  </div>
+  <div id="cartItems"></div>
+  <div id="cartTotal" style="margin-top:16px; font-weight:700;"></div>
+  <button class="place-btn" id="checkoutBtn">
+    <i class="ti ti-clipboard-check"></i>
+    <span id="checkoutText">አረጋግጥ</span>
+  </button>
+</div> 
 <div class="overlay" id="overlay"></div>
 <div id="toastMsg" style="position:fixed; bottom:20px; left:50%; transform:translateX(-50%); background:var(--earth); color:white; padding:8px 20px; border-radius:40px; z-index:200; opacity:0; transition:0.2s; pointer-events:none;"></div>
 <script>
@@ -395,13 +408,65 @@ async function cancelOrder(orderId){
     showToast("Order cancelled", 2000);
   }catch(e){}
 }
-function renderOrdersList(){
+function renderOrdersList() {
   const container = document.getElementById('ordersContent');
-  if(!ordersList.length){ container.innerHTML = `<div class="orders-empty"><i class="ti ti-receipt-off"></i><p>${t('empty')}</p></div>`; return; }
+
+  if (!ordersList.length) {
+    container.innerHTML = `
+      <div class="orders-empty">
+        <i class="ti ti-receipt-off"></i>
+        <p>${t('noOrders')}</p>
+      </div>`;
+    return;
+  }
+
+  const statusLabels = {
+    pending: t('pending'),
+    approved: t('approved'),
+    preparing: t('preparing'),
+    ready: t('ready'),
+    served: t('served')
+  };
+
   container.innerHTML = ordersList.map(o => {
-    let statusText = { pending:'🟡 '+t('prep'), approved:'🟢 '+t('approved'), preparing:'👨‍🍳 '+t('prep'), ready:'✅ '+t('ready'), served:'✔ Served', rejected:'❌ '+t('rejected') }[o.status] || o.status;
-    let canCancel = (o.status === 'pending' && (Date.now() - new Date(o.createdAt).getTime() < 30000));
-    return `<div class="order-card" style="margin-bottom:12px; padding:14px; background:var(--surface); border-radius:16px;"><div style="display:flex;justify-content:space-between;"><b>#${o.orderNumber}</b><span>${statusText}</span></div><div>${o.items.map(i=>`${i.name} ×${i.qty}`).join(', ')}</div><div><strong>${o.total} br</strong></div>${canCancel ? `<button class="cancel-order-btn" onclick="cancelOrder('${o.id}')"><i class="ti ti-x"></i> ${t('cancel')}</button>` : ''}<div class="status-timeline">${['pending','approved','preparing','ready','served'].map(s => `<span class="status-step ${(['served','ready','preparing','approved','pending'].indexOf(o.status) >= ['served','ready','preparing','approved','pending'].indexOf(s) ? 'active' : '')}">${s}</span>`).join('')}</div></div>`;
+    let statusText = {
+      pending: '🟡 ' + t('pending'),
+      approved: '🟢 ' + t('approved'),
+      preparing: '👨‍🍳 ' + t('preparing'),
+      ready: '✅ ' + t('ready'),
+      served: '✔ ' + t('served'),
+      rejected: '❌ ' + t('rejected')
+    }[o.status] || o.status;
+
+    let canCancel =
+      o.status === 'pending' &&
+      (Date.now() - new Date(o.createdAt).getTime() < 30000);
+
+    return `
+      <div class="order-card" style="margin-bottom:12px; padding:14px; background:var(--surface); border-radius:16px;">
+        <div style="display:flex;justify-content:space-between;">
+          <b>#${o.orderNumber}</b>
+          <span>${statusText}</span>
+        </div>
+
+        <div>${o.items.map(i => `${i.name} ×${i.qty}`).join(', ')}</div>
+
+        <div><strong>${o.total} br</strong></div>
+
+        ${canCancel ? `
+          <button class="cancel-order-btn" onclick="cancelOrder('${o.id}')">
+            <i class="ti ti-x"></i> ${t('cancel')}
+          </button>` : ''}
+
+        <div class="status-timeline">
+          ${['pending', 'approved', 'preparing', 'ready', 'served'].map(s => `
+            <span class="status-step ${
+              (['served', 'ready', 'preparing', 'approved', 'pending'].indexOf(o.status) >=
+              ['served', 'ready', 'preparing', 'approved', 'pending'].indexOf(s) ? 'active' : '')
+            }">${statusLabels[s]}</span>
+          `).join('')}
+        </div>
+      </div>`;
   }).join('');
 }
 async function placeOrder() {
@@ -461,7 +526,50 @@ function showSuccessModal(orderNo){
   const modal = document.createElement('div'); modal.className = 'modal-wrap show'; modal.style.display='flex'; modal.innerHTML = `<div class="modal" style="text-align:center"><i class="ti ti-check" style="font-size:48px;color:var(--sage)"></i><h3>${t('ready')}</h3><div style="font-size:28px;font-weight:800">#${orderNo}</div><p>${t('estimated')}: 15-20 ${t('min')}</p><button class="place-btn" style="margin-top:12px" onclick="this.closest('.modal-wrap').remove()">OK</button></div>`;
   document.body.appendChild(modal); setTimeout(()=>modal.remove(), 4000);
 }
-function updateCartUI(){ const cnt = Object.values(cart).reduce((s,i)=>s+i.qty,0); document.getElementById('cartCnt').innerText = cnt; const itemsDiv = document.getElementById('cartItems'); if(cnt===0){ itemsDiv.innerHTML = `<div class="empty-cart">${t('empty')}</div>`; document.getElementById('cartTotal').innerHTML = ''; return; } let html=''; Object.entries(cart).forEach(([id,it])=>{ html+=`<div class="cart-row"><div><b>${it.name}</b> ${it.kg?`(${it.kg}kg)`:''} x${it.qty}</div><div>${(it.price*it.qty).toLocaleString()} br <button onclick="removeCartItem('${id}')" style="background:none;border:none;color:red;margin-left:8px"><i class="ti ti-trash"></i></button></div></div>`; }); itemsDiv.innerHTML = html; const total = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0); document.getElementById('cartTotal').innerHTML = `<div style="border-top:1px solid var(--border);padding-top:12px;font-size:18px;">${t('total')}: ${total.toLocaleString()} br</div>`; }
+ function updateCartUI() {
+  const cnt = Object.values(cart).reduce((s, i) => s + i.qty, 0);
+
+  document.getElementById('cartCnt').innerText = cnt;
+
+  const itemsDiv = document.getElementById('cartItems');
+
+  if (cnt === 0) {
+    itemsDiv.innerHTML = `<div class="empty-cart">${t('empty')}</div>`;
+    document.getElementById('cartTotal').innerHTML = '';
+    return;
+  }
+
+  let html = '';
+
+  Object.entries(cart).forEach(([id, it]) => {
+    html += `
+      <div class="cart-row">
+        <div>
+          <b>${it.name}</b>
+          ${it.kg ? `(${it.kg}kg)` : ''}
+          ${t('quantity')}: ${it.qty}
+        </div>
+        <div>
+          ${(it.price * it.qty).toLocaleString()} br
+          <button onclick="removeCartItem('${id}')"
+            style="background:none;border:none;color:red;margin-left:8px">
+            <i class="ti ti-trash"></i>
+          </button>
+        </div>
+      </div>`;
+  });
+
+  itemsDiv.innerHTML = html;
+
+  const total = Object.values(cart).reduce(
+    (s, i) => s + i.price * i.qty, 0
+  );
+
+  document.getElementById('cartTotal').innerHTML = `
+    <div style="border-top:1px solid var(--border);padding-top:12px;font-size:18px;">
+      ${t('total')}: ${total.toLocaleString()} br
+    </div>`;
+}
 function removeCartItem(id){ delete cart[id]; updateCartUI(); renderMenu(); }
 function addToCart(id) {
   const item = getMenuItem(id);
@@ -576,6 +684,13 @@ document.getElementById('checkoutBtn').onclick = placeOrder;
 document.getElementById('cart-fab').onclick = () => document.getElementById('drawer').classList.add('open');
 document.getElementById('closeDrawer').onclick = () => document.getElementById('drawer').classList.remove('open');
 document.querySelectorAll('.lang-btn').forEach(btn => {
+document.getElementById('welcomeText').textContent = t('welcome');
+document.getElementById('sessionHelpText').textContent = t('sessionHelp');
+document.getElementById('tableLabel').textContent = t('tableNumber');
+document.getElementById('tablePlaceholder').textContent = t('selectTable');
+document.getElementById('accessCodeLabel').textContent = t('accessCode');
+document.getElementById('sessionInput').placeholder = t('enterCode');
+document.getElementById('sessionSubmit').textContent = t('openMenu');
   btn.onclick = () => {
     lang = btn.dataset.lang;
 
@@ -586,7 +701,9 @@ document.querySelectorAll('.lang-btn').forEach(btn => {
     });
 
     btn.classList.add('active');
-
+    document.getElementById('cartTitle').textContent = t('cart');
+    document.getElementById('checkoutText').textContent = t('place');
+    
     renderCatTabs();
     renderMenu();
     updateCartUI();
@@ -625,6 +742,26 @@ document.querySelectorAll('.page-tab').forEach(tab => {
     }
   });
 });
+function updatePageLanguage() {
+  document.getElementById('menuTabText').textContent = t('menu');
+  document.getElementById('ordersTabText').textContent = t('orders');
+  document.getElementById('cartTitle').textContent = t('cart');
+  document.getElementById('checkoutText').textContent = t('place');
+  document.getElementById('welcomeText').textContent = t('welcome');
+  document.getElementById('sessionHelpText').textContent = t('sessionHelp');
+  document.getElementById('tableLabel').textContent = t('tableNumber');
+  document.getElementById('tablePlaceholder').textContent = t('selectTable');
+  document.getElementById('accessCodeLabel').textContent = t('accessCode');
+  document.getElementById('sessionInput').placeholder = t('enterCode');
+  document.getElementById('sessionSubmit').textContent = t('openMenu');
+
+  renderCatTabs();
+  renderMenu();
+  updateCartUI();
+  renderOrdersList();
+}
+
+updatePageLanguage();
 checkSession();
 window.removeCartItem = removeCartItem; window.addToCart = addToCart; window.cancelOrder = cancelOrder;
 </script>
