@@ -7,6 +7,15 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.5.0/dist/tabler-icons.min.css">
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;700;800&family=Noto+Sans+Ethiopic:wght@400;500;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
+  /* Page navigation */
+.page {
+  display: none;
+  animation: fadeUp 0.25s ease;
+}
+
+.page.active {
+  display: block;
+}
 *{box-sizing:border-box;margin:0;padding:0;}
 :root{--sage:#7C8F6E;--sage-l:#A8BF9A;--sage-ll:#EAF0E5;--olive:#5C6B3A;--olive-l:#8A9B5A;--olive-ll:#E8EDDA;--terra:#B85C38;--terra-l:#D4845C;--terra-ll:#F5E0D5;--earth:#3D2B1A;--earth-m:#6B4C32;--earth-l:#C4A882;--earth-ll:#F7F2EC;--gold:#C49A3C;--gold-l:#E8C96A;--gold-ll:#FBF4E0;--bg:#F4EFE6;--surface:#FFFDF8;--surface2:#F0EBE0;--text:#2C1F0F;--text2:#6B4C32;--text3:#9A7B5A;--border:rgba(93,67,38,0.12);--border2:rgba(93,67,38,0.22);--font:'Inter',system-ui;--font-eth:'Noto Sans Ethiopic',sans-serif;--font-d:'Playfair Display',serif;--r:12px;--r-lg:18px;--r-xl:24px;--trans:0.22s cubic-bezier(.4,0,.2,1);}
 [data-theme=dark]{--bg:#1A1208;--surface:#241A0E;--surface2:#2E2214;--text:#F0E8D8;--text2:#C4A882;--text3:#7A5F42;--border:rgba(196,168,130,0.12);--border2:rgba(196,168,130,0.22);--earth-ll:#2E2214;--sage-ll:#1E2618;--olive-ll:#1E2210;--terra-ll:#2A1A10;--gold-ll:#241C08;}
@@ -121,18 +130,71 @@ const KG_OPTIONS = [0.5, 1, 1.5, 2];
 
 const T = {
   am: {
-    cats:{all:"ሁሉም",specials:"ልዩ",mains:"ዋና",veg:"ጾም",bev:"መጠጥ"},
-    add:"ጨምር", total:"ጠቅላላ", place:"አረጋግጥ", empty:"ቅርጫት ባዶ",
-    prep:"እየተዘጋጀ", ready:"ዝግጁ", rejected:"ተቀባይነት አላገኘም",
-    approved:"ተቀባይነት አገኘ", kglbl:"ክብደት (ኪግ)", cancel:"ሰርዝ",
-    estimated:"የሚጠበቅ ጊዜ", min:"ደቂቃ", unavailable:"አሁን የለም"
+    cats: {
+      all: "ሁሉም",
+      specials: "ስፔሻል/ልዩ",
+      mains: "ዋና ምግቦች",
+      veg: "የጾም",
+      bev: "መጠጥ"
+    },
+    add: "ጨምር",
+    total: "ጠቅላላ",
+    place: "አረጋግጥ",
+    empty: "ቅርጫት ባዶ",
+    prep: "እየተዘጋጀ",
+    ready: "ዝግጁ",
+    rejected: "ተቀባይነት አላገኘም",
+    approved: "ተቀባይነት አግኝቷል",
+    kglbl: "ክብደት (ኪግ)",
+    cancel: "ሰርዝ",
+    estimated: "የሚጠበቅብት ጊዜ",
+    min: "ደቂቃ",
+    unavailable: "አሁን የለም",
+
+    orders: "ትዕዛዞች",
+    menu: "ምግብ ዝርዝር",
+    orderHistory: "የትዕዛዝ ታሪክ",
+    loading: "በመጫን ላይ...",
+    noOrders: "እስካሁን ትዕዛዝ የለም",
+    weight: "ክብደት",
+    quantity: "ብዛት",
+    price: "ዋጋ",
+    status: "ሁኔታ",
+    orderNumber: "የትዕዛዝ ቁጥር"
   },
+
   en: {
-    cats:{all:"All",specials:"Specials",mains:"Mains",veg:"Veg",bev:"Drinks"},
-    add:"Add", total:"Total", place:"Confirm", empty:"Cart empty",
-    prep:"Preparing", ready:"Ready", rejected:"Rejected", approved:"Approved",
-    kglbl:"Weight (kg)", cancel:"Cancel", estimated:"Est. wait", min:"min",
-    unavailable:"Currently unavailable"
+    cats: {
+      all: "All",
+      specials: "Specials",
+      mains: "Mains",
+      veg: "Vegan",
+      bev: "Drinks"
+    },
+    add: "Add",
+    total: "Total",
+    place: "Confirm",
+    empty: "Cart empty",
+    prep: "Preparing",
+    ready: "Ready",
+    rejected: "Rejected",
+    approved: "Approved",
+    kglbl: "Weight (kg)",
+    cancel: "Cancel",
+    estimated: "Est. wait",
+    min: "min",
+    unavailable: "Currently unavailable",
+
+    orders: "Orders",
+    menu: "Menu",
+    orderHistory: "Order History",
+    loading: "Loading...",
+    noOrders: "No orders yet",
+    weight: "Weight",
+    quantity: "Quantity",
+    price: "Price",
+    status: "Status",
+    orderNumber: "Order Number"
   }
 };
 const t = (k) => T[lang][k] || T.en[k] || k;
@@ -294,17 +356,58 @@ function renderOrdersList(){
     return `<div class="order-card" style="margin-bottom:12px; padding:14px; background:var(--surface); border-radius:16px;"><div style="display:flex;justify-content:space-between;"><b>#${o.orderNumber}</b><span>${statusText}</span></div><div>${o.items.map(i=>`${i.name} ×${i.qty}`).join(', ')}</div><div><strong>${o.total} br</strong></div>${canCancel ? `<button class="cancel-order-btn" onclick="cancelOrder('${o.id}')"><i class="ti ti-x"></i> ${t('cancel')}</button>` : ''}<div class="status-timeline">${['pending','approved','preparing','ready','served'].map(s => `<span class="status-step ${(['served','ready','preparing','approved','pending'].indexOf(o.status) >= ['served','ready','preparing','approved','pending'].indexOf(s) ? 'active' : '')}">${s}</span>`).join('')}</div></div>`;
   }).join('');
 }
-async function placeOrder(){
-  if(Object.keys(cart).length===0) return;
-  const total = Object.values(cart).reduce((s,i)=>s + i.price * i.qty,0);
-  const lines = Object.entries(cart).map(([id,it])=>`${it.name}${it.kg?` (${it.kg}kg)`:''} ×${it.qty}`);
-  const orderToken = crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36);
-  try{
-    const res = await fetch(`${API_BASE}/api/place-order`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ table:currentTable, session:currentSession, items:Object.entries(cart).map(([id,it])=>({ id, name:it.name, qty:it.qty, kg:it.kg, price:it.price })), total, lines, orderToken }) });
+async function placeOrder() {
+  if (Object.keys(cart).length === 0) return;
+
+  const total = Object.values(cart).reduce(
+    (s, i) => s + i.price * i.qty,
+    0
+  );
+
+  const lines = Object.entries(cart).map(([key, item]) =>
+    `${item.name}${item.kg ? ` (${item.kg}kg)` : ''} ×${item.qty}`
+  );
+
+  const orderToken = crypto.randomUUID
+    ? crypto.randomUUID()
+    : Math.random().toString(36);
+
+  try {
+    const res = await fetch(`${API_BASE}/api/place-order`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        table: currentTable,
+        session: currentSession,
+        items: Object.entries(cart).map(([key, item]) => ({
+          id: item.menuId || key,
+          name: item.name,
+          qty: item.qty,
+          kg: item.kg,
+          price: item.price
+        })),
+        total,
+        lines,
+        orderToken
+      })
+    });
+
     const data = await res.json();
-    if(data.ok){ showSuccessModal(data.orderNumber); cart = {}; kgSel = {}; updateCartUI(); renderMenu(); fetchLiveOrders(); }
-    else showToast(data.error || "Failed", 2000);
-  }catch(e){ showToast("Network error", 2000); }
+
+    if (data.ok) {
+      showSuccessModal(data.orderNumber);
+      cart = {};
+      kgSel = {};
+      updateCartUI();
+      renderMenu();
+      fetchLiveOrders();
+    } else {
+      showToast(data.error || "Failed", 2000);
+    }
+  } catch (e) {
+    console.error('Order error:', e);
+    showToast("Network error", 2000);
+  }
 }
 function showSuccessModal(orderNo){
   const modal = document.createElement('div'); modal.className = 'modal-wrap show'; modal.style.display='flex'; modal.innerHTML = `<div class="modal" style="text-align:center"><i class="ti ti-check" style="font-size:48px;color:var(--sage)"></i><h3>${t('ready')}</h3><div style="font-size:28px;font-weight:800">#${orderNo}</div><p>${t('estimated')}: 15-20 ${t('min')}</p><button class="place-btn" style="margin-top:12px" onclick="this.closest('.modal-wrap').remove()">OK</button></div>`;
@@ -312,8 +415,9 @@ function showSuccessModal(orderNo){
 }
 function updateCartUI(){ const cnt = Object.values(cart).reduce((s,i)=>s+i.qty,0); document.getElementById('cartCnt').innerText = cnt; const itemsDiv = document.getElementById('cartItems'); if(cnt===0){ itemsDiv.innerHTML = `<div class="empty-cart">${t('empty')}</div>`; document.getElementById('cartTotal').innerHTML = ''; return; } let html=''; Object.entries(cart).forEach(([id,it])=>{ html+=`<div class="cart-row"><div><b>${it.name}</b> ${it.kg?`(${it.kg}kg)`:''} x${it.qty}</div><div>${(it.price*it.qty).toLocaleString()} br <button onclick="removeCartItem('${id}')" style="background:none;border:none;color:red;margin-left:8px"><i class="ti ti-trash"></i></button></div></div>`; }); itemsDiv.innerHTML = html; const total = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0); document.getElementById('cartTotal').innerHTML = `<div style="border-top:1px solid var(--border);padding-top:12px;font-size:18px;">${t('total')}: ${total.toLocaleString()} br</div>`; }
 function removeCartItem(id){ delete cart[id]; updateCartUI(); renderMenu(); }
-function addToCart(id){
+function addToCart(id) {
   const item = getMenuItem(id);
+
   if (!item || !item.available) {
     showToast(t('unavailable'), 1800);
     return;
@@ -323,14 +427,18 @@ function addToCart(id){
   const selectedKg = weightBased ? (kgSel[id] || 1) : 1;
   const price = Number(item.price) * selectedKg;
 
-  if (cart[id]) {
-    cart[id].qty += 1;
-    cart[id].price = price;
-    cart[id].kg = weightBased ? selectedKg : null;
+  // Give each weight its own cart entry
+  const cartKey = weightBased
+    ? `${id}_${selectedKg}`
+    : id;
+
+  if (cart[cartKey]) {
+    cart[cartKey].qty += 1;
   } else {
-    cart[id] = {
+    cart[cartKey] = {
+      menuId: id,
       name: item.name,
-      price,
+      price: price,
       qty: 1,
       kg: weightBased ? selectedKg : null
     };
@@ -419,7 +527,24 @@ function renderCatTabs() {
 document.getElementById('checkoutBtn').onclick = placeOrder;
 document.getElementById('cart-fab').onclick = () => document.getElementById('drawer').classList.add('open');
 document.getElementById('closeDrawer').onclick = () => document.getElementById('drawer').classList.remove('open');
-document.querySelectorAll('.lang-btn').forEach(btn=>btn.onclick=()=>{ lang = btn.getAttribute('data-lang'); document.querySelectorAll('.lang-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderMenu(); updateCartUI(); renderOrdersList(); document.getElementById('tableDisplay').innerHTML = `ጠረጴዛ ${currentTable}`; });
+document.querySelectorAll('.lang-btn').forEach(btn => {
+  btn.onclick = () => {
+    lang = btn.dataset.lang;
+
+    document.querySelectorAll('.lang-btn').forEach(b => {
+      b.classList.remove('active');
+    });
+
+    btn.classList.add('active');
+
+    renderCatTabs();
+    renderMenu();
+    updateCartUI();
+    renderOrdersList();
+
+    document.documentElement.lang = lang;
+  };
+});
 document.querySelectorAll('.page-tab').forEach(tab => {
   tab.addEventListener('click', async () => {
     const page = tab.dataset.page;
