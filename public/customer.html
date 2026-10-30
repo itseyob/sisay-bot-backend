@@ -698,18 +698,6 @@ document.querySelectorAll('.lang-btn').forEach(btn => {
   };
 });
 
-    btn.classList.add('active');
-    document.getElementById('cartTitle').textContent = t('cart');
-    document.getElementById('checkoutText').textContent = t('place');
-    
-    renderCatTabs();
-    renderMenu();
-    updateCartUI();
-    renderOrdersList();
-
-    document.documentElement.lang = lang;
-  };
-});
 document.querySelectorAll('.page-tab').forEach(tab => {
   tab.addEventListener('click', async () => {
     const page = tab.dataset.page;
