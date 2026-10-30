@@ -151,8 +151,7 @@ let orderCancelTimers = {};
 // Menu data is loaded from PostgreSQL through /api/menu.
 let menuItems = [];
 const KG_OPTIONS = [0.5, 1, 1.5, 2];
-
-const t = (k) => T[lang][k] || T.en[k] || k;
+const T = {
   am: {
     cats: {
       all: "ሁሉም",
@@ -171,10 +170,9 @@ const t = (k) => T[lang][k] || T.en[k] || k;
     approved: "ተቀባይነት አግኝቷል",
     kglbl: "ክብደት (ኪግ)",
     cancel: "ሰርዝ",
-    estimated: "የሚጠበቅብት ጊዜ",
+    estimated: "የሚጠይቀው ጊዜ",
     min: "ደቂቃ",
     unavailable: "አሁን የለም",
-
     orders: "ትዕዛዞች",
     menu: "ምግብ ዝርዝር",
     orderHistory: "የትዕዛዝ ታሪክ",
@@ -186,7 +184,6 @@ const t = (k) => T[lang][k] || T.en[k] || k;
     status: "ሁኔታ",
     orderNumber: "የትዕዛዝ ቁጥር"
   },
-
   en: {
     cats: {
       all: "All",
@@ -208,7 +205,6 @@ const t = (k) => T[lang][k] || T.en[k] || k;
     estimated: "Est. wait",
     min: "min",
     unavailable: "Currently unavailable",
-
     orders: "Orders",
     menu: "Menu",
     orderHistory: "Order History",
@@ -221,6 +217,9 @@ const t = (k) => T[lang][k] || T.en[k] || k;
     orderNumber: "Order Number"
   }
 };
+
+const t = (k) => T[lang]?.[k] || T.en?.[k] || k;
+
 
 // Additional translations for the whole customer page
 T.am = {
@@ -683,22 +682,21 @@ function renderCatTabs() {
 document.getElementById('checkoutBtn').onclick = placeOrder;
 document.getElementById('cart-fab').onclick = () => document.getElementById('drawer').classList.add('open');
 document.getElementById('closeDrawer').onclick = () => document.getElementById('drawer').classList.remove('open');
+
 document.querySelectorAll('.lang-btn').forEach(btn => {
-document.getElementById('welcomeText').textContent = t('welcome');
-document.getElementById('sessionHelpText').textContent = t('sessionHelp');
-document.getElementById('tableLabel').textContent = t('tableNumber');
-document.getElementById('tablePlaceholder').textContent = t('selectTable');
-document.getElementById('accessCodeLabel').textContent = t('accessCode');
-document.getElementById('sessionInput').placeholder = t('enterCode');
-document.getElementById('sessionSubmit').textContent = t('openMenu');
   btn.onclick = () => {
     lang = btn.dataset.lang;
 
     document.querySelectorAll('.lang-btn').forEach(b => {
       b.classList.remove('active');
-      document.getElementById('menuTabText').textContent = t('menu');
-      document.getElementById('ordersTabText').textContent = t('orders');
     });
+
+    btn.classList.add('active');
+
+    updatePageLanguage();
+    document.documentElement.lang = lang;
+  };
+});
 
     btn.classList.add('active');
     document.getElementById('cartTitle').textContent = t('cart');
@@ -756,14 +754,19 @@ function updatePageLanguage() {
   document.getElementById('sessionSubmit').textContent = t('openMenu');
 
   renderCatTabs();
-  renderMenu();
   updateCartUI();
   renderOrdersList();
+
+  if (menuItems.length > 0) {
+    renderMenu();
+  }
 }
 
 updatePageLanguage();
 checkSession();
-window.removeCartItem = removeCartItem; window.addToCart = addToCart; window.cancelOrder = cancelOrder;
+window.removeCartItem = removeCartItem;
+window.addToCart = addToCart; 
+window.cancelOrder = cancelOrder;
 </script>
 </body>
 </html>
