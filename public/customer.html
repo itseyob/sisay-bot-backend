@@ -83,7 +83,18 @@ body{background:var(--bg);color:var(--text);font-family:var(--font);transition:b
       </div>
     </div>
   </div>
-  <div class="page-nav"><button class="page-tab active" data-page="menu"><i class="ti ti-tools-kitchen-2"></i> <span>የምግብ ዝርዝር</span></button><button class="page-tab" data-page="orders"><i class="ti ti-receipt"></i> <span>ትዕዛዞች</span><span class="obadge" id="ordersBadge">0</span></button></div>
+  <div class="page-nav">
+  <button class="page-tab active" data-page="menu">
+    <i class="ti ti-tools-kitchen-2"></i>
+    <span id="menuTabText">የምግብ ዝርዝር</span>
+  </button>
+
+  <button class="page-tab" data-page="orders">
+    <i class="ti ti-receipt"></i>
+    <span id="ordersTabText">ትዕዛዞች</span>
+    <span class="obadge" id="ordersBadge">0</span>
+  </button>
+</div>
   <div id="page-menu" class="page active"><div class="cat-tabs" id="catTabs"></div><div id="menuContent"></div></div>
   <div id="page-orders" class="page"><div id="ordersContent"></div></div>
 </div>
@@ -197,7 +208,44 @@ const T = {
     orderNumber: "Order Number"
   }
 };
-const t = (k) => T[lang][k] || T.en[k] || k;
+
+// Additional translations for the whole customer page
+T.am = {
+  ...T.am,
+  cart: "የእርስዎ ትዕዛዝ",
+  table: "ጠረጴዛ",
+  served: "አገልግሏል",
+  pending: "በመጠባበቅ ላይ",
+  preparing: "እየተዘጋጀ",
+  selectTable: "ጠረጴዛ ይምረጡ",
+  tableNumber: "የጠረጴዛ ቁጥር",
+  accessCode: "የመግቢያ ኮድ",
+  enterCode: "ከሰራተኛው የተሰጠውን ኮድ ያስገቡ",
+  openMenu: "ምግብ ዝርዝሩን ክፈት",
+  checking: "በመፈተሽ ላይ...",
+  welcome: "ወደ Sisay Goat Tibs እንኳን በደህና መጡ",
+  sessionHelp: "ጠረጴዛዎን ይምረጡና ከሰራተኛችን የተሰጠውን ኮድ ያስገቡ",
+  noOrders: "እስካሁን ትዕዛዝ የለም"
+};
+
+T.en = {
+  ...T.en,
+  cart: "Your Order",
+  table: "Table",
+  served: "Served",
+  pending: "Pending",
+  preparing: "Preparing",
+  selectTable: "Select a table",
+  tableNumber: "Table number",
+  accessCode: "Access code",
+  enterCode: "Enter the code from staff",
+  openMenu: "Open Menu",
+  checking: "Checking...",
+  welcome: "Welcome to Sisay Goat Tibs",
+  sessionHelp: "Select your table and enter the code provided by our staff",
+  noOrders: "No orders yet"
+};
+
 const getMenuItem = (id) => menuItems.find(item => item.id === id);
 const isKg = (id) => getMenuItem(id)?.byWeight === true;
 const ti = (id) => getMenuItem(id)?.name || id;
@@ -533,6 +581,8 @@ document.querySelectorAll('.lang-btn').forEach(btn => {
 
     document.querySelectorAll('.lang-btn').forEach(b => {
       b.classList.remove('active');
+      document.getElementById('menuTabText').textContent = t('menu');
+      document.getElementById('ordersTabText').textContent = t('orders');
     });
 
     btn.classList.add('active');
