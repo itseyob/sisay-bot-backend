@@ -21,6 +21,32 @@ if (BOT_TOKEN && CHAT_ID) {
   console.warn('⚠️ Telegram disabled: missing BOT_TOKEN or CHAT_ID');
 }
 
+// ========== MENU DATA ==========
+const MENU = {
+  sp1: { name: "Combo", price: 2400, byWeight: false },
+  sp2: { name: "Beteseb", price: 1850, byWeight: false },
+  sp3: { name: "Sisay Special", price: 1295, byWeight: false },
+  sp4: { name: "Maheberawi", price: 1575, byWeight: false },
+  sp5: { name: "Emperor's Tibs", price: 1950, byWeight: false },
+
+  m1: { name: "Shekla Tibs", price: 1400, byWeight: true },
+  m2: { name: "Merek Tibs", price: 1350, byWeight: true },
+  m3: { name: "Dulet", price: 895, byWeight: true },
+  m4: { name: "Kikil", price: 675, byWeight: false },
+  m5: { name: "Gas Light", price: 950, byWeight: true },
+
+  v1: { name: "Shiro", price: 150, byWeight: false },
+  v2: { name: "Beyeaynet", price: 260, byWeight: false },
+  v3: { name: "Firfir", price: 120, byWeight: false },
+  v4: { name: "Misir", price: 130, byWeight: false },
+  v5: { name: "Pasta", price: 100, byWeight: false },
+
+  b1: { name: "Soda", price: 50, byWeight: false },
+  b2: { name: "Beer", price: 140, byWeight: false },
+  b3: { name: "Tea", price: 20, byWeight: false },
+  b4: { name: "Coffee", price: 30, byWeight: false },
+  b5: { name: "Macchiato", price: 40, byWeight: false }
+};
 // ========== In-memory storage ==========
 let sessions = {};        // { table: { sessionToken, active, createdAt } }
 let orders = [];
@@ -61,36 +87,107 @@ app.get('/api/validate-session', (req, res) => {
 });
 
 app.post('/api/place-order', (req, res) => {
-  const { table, session, items, total, orderToken } = req.body;
-  if (!isValidTable(table)) return res.status(400).json({ error: 'Invalid table' });
+  const { table, session, items, orderToken } = req.body;
+
+  if (!isValidTable(table)) {
+    return res.status(400).json({ error: 'Invalid table' });
+  }
+
   const sess = sessions[table];
+
   if (!sess || sess.sessionToken !== session || !sess.active) {
     return res.status(403).json({ error: 'Table not active' });
   }
-  if (!checkRateLimit(table)) {
-    return res.status(429).json({ error: 'Please wait 20 seconds before ordering again' });
+
+  if (!Array.isArray(items) || items.length === 0 || items.length > 20) {
+    return res.status(400).json({ error: 'Invalid order items' });
   }
+
+  if (!orderToken || typeof orderToken !== 'string' || orderToken.length > 100) {
+    return res.status(400).json({ error: 'Invalid order token' });
+  }
+
+  const verifiedItems = [];
+
+  for (const item of items) {
+    const menuItem = MENU[item.id];
+
+    if (!menuItem) {
+      return res.status(400).json({ error: `Invalid menu item: ${item.id}` });
+    }
+
+    if (!Number.isInteger(item.qty) || item.qty < 1 || item.qty > 50) {
+      return res.status(400).json({ error: 'Invalid item quantity' });
+    }
+
+    let itemPrice;
+
+    if (menuItem.byWeight) {
+      if (![0.5, 1, 1.5, 2].includes(item.kg)) {
+        return res.status(400).json({ error: 'Invalid weight option' });
+      }
+
+      itemPrice = menuItem.price * item.kg;
+    } else {
+      if (item.kg !== undefined && item.kg !== null) {
+        return res.status(400).json({ error: 'This item is not sold by weight' });
+      }
+
+      itemPrice = menuItem.price;
+    }
+
+    verifiedItems.push({
+      id: item.id,
+      name: menuItem.name,
+      qty: item.qty,
+      ...(menuItem.byWeight ? { kg: item.kg } : {}),
+      price: itemPrice
+    });
+  }
+
+  if (!checkRateLimit(table)) {
+    return res.status(429).json({
+      error: 'Please wait 20 seconds before ordering again'
+    });
+  }
+
   if (lastOrderToken === orderToken) {
     return res.status(409).json({ error: 'Duplicate order' });
   }
+
   lastOrderToken = orderToken;
-  setTimeout(() => { lastOrderToken = null; }, 5000);
+  setTimeout(() => {
+    if (lastOrderToken === orderToken) lastOrderToken = null;
+  }, 5000);
+
+  const total = verifiedItems.reduce(
+    (sum, item) => sum + item.price * item.qty,
+    0
+  );
+
+  const lines = verifiedItems.map(
+    item => `${item.name}${item.kg ? ` (${item.kg}kg)` : ''} ×${item.qty}`
+  );
 
   const orderId = nextOrderId++;
   const orderNumber = `ORD-${orderId}`;
+
   const newOrder = {
     id: orderId,
     orderNumber,
     table: parseInt(table),
     session,
-    items,
+    items: verifiedItems,
     total,
+    lines,
     status: 'pending',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
+
   orders.push(newOrder);
   sendTelegram(newOrder);
+
   res.json({ ok: true, orderNumber });
 });
 
