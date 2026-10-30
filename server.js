@@ -69,7 +69,23 @@ async function initializeDatabase() {
   }
 }
 
-initializeDatabase();
+async function seedMenu() {
+  try {
+    for (const [id, item] of Object.entries(MENU)) {
+      await pool.query(
+        `INSERT INTO menu_items
+          (id, name, category, price, by_weight, available)
+         VALUES ($1, $2, $3, $4, $5, TRUE)
+         ON CONFLICT (id) DO NOTHING`,
+        [id, item.name, item.category, item.price, item.byWeight]
+      );
+    }
+
+    console.log('✅ Menu seeded successfully');
+  } catch (err) {
+    console.error('❌ Menu seeding failed:', err.message);
+  }
+}
 pool.query('SELECT NOW()')
   .then(() => console.log('✅ PostgreSQL connected successfully'))
   .catch(err => console.error('❌ PostgreSQL connection failed:', err.message));
@@ -92,30 +108,34 @@ if (BOT_TOKEN && CHAT_ID) {
 
 // ========== MENU DATA ==========
 const MENU = {
-  sp1: { name: "Combo", price: 2400, byWeight: false },
-  sp2: { name: "Beteseb", price: 1850, byWeight: false },
-  sp3: { name: "Sisay Special", price: 1295, byWeight: false },
-  sp4: { name: "Maheberawi", price: 1575, byWeight: false },
-  sp5: { name: "Emperor's Tibs", price: 1950, byWeight: false },
+  sp1: { name: "Combo", price: 2400, byWeight: false, category: "specials" },
+  sp2: { name: "Beteseb", price: 1850, byWeight: false, category: "specials" },
+  sp3: { name: "Sisay Special", price: 1295, byWeight: false, category: "specials" },
+  sp4: { name: "Maheberawi", price: 1575, byWeight: false, category: "specials" },
+  sp5: { name: "Emperor's Tibs", price: 1950, byWeight: false, category: "specials" },
 
-  m1: { name: "Shekla Tibs", price: 1400, byWeight: true },
-  m2: { name: "Merek Tibs", price: 1350, byWeight: true },
-  m3: { name: "Dulet", price: 895, byWeight: true },
-  m4: { name: "Kikil", price: 675, byWeight: false },
-  m5: { name: "Gas Light", price: 950, byWeight: true },
+  m1: { name: "Shekla Tibs", price: 1400, byWeight: true, category: "mains" },
+  m2: { name: "Merek Tibs", price: 1350, byWeight: true, category: "mains" },
+  m3: { name: "Dulet", price: 895, byWeight: true, category: "mains" },
+  m4: { name: "Kikil", price: 675, byWeight: false, category: "mains" },
+  m5: { name: "Gas Light", price: 950, byWeight: true, category: "mains" },
 
-  v1: { name: "Shiro", price: 150, byWeight: false },
-  v2: { name: "Beyeaynet", price: 260, byWeight: false },
-  v3: { name: "Firfir", price: 120, byWeight: false },
-  v4: { name: "Misir", price: 130, byWeight: false },
-  v5: { name: "Pasta", price: 100, byWeight: false },
+  v1: { name: "Shiro", price: 150, byWeight: false, category: "veg" },
+  v2: { name: "Beyeaynet", price: 260, byWeight: false, category: "veg" },
+  v3: { name: "Firfir", price: 120, byWeight: false, category: "veg" },
+  v4: { name: "Misir", price: 130, byWeight: false, category: "veg" },
+  v5: { name: "Pasta", price: 100, byWeight: false, category: "veg" },
 
-  b1: { name: "Soda", price: 50, byWeight: false },
-  b2: { name: "Beer", price: 140, byWeight: false },
-  b3: { name: "Tea", price: 20, byWeight: false },
-  b4: { name: "Coffee", price: 30, byWeight: false },
-  b5: { name: "Macchiato", price: 40, byWeight: false }
+  b1: { name: "Soda", price: 50, byWeight: false, category: "bev" },
+  b2: { name: "Beer", price: 140, byWeight: false, category: "bev" },
+  b3: { name: "Tea", price: 20, byWeight: false, category: "bev" },
+  b4: { name: "Coffee", price: 30, byWeight: false, category: "bev" },
+  b5: { name: "Macchiato", price: 40, byWeight: false, category: "bev" }
 };
+
+// Initialize database, then insert menu items
+initializeDatabase().then(() => seedMenu());
+
 // ========== In-memory storage ==========
 let sessions = {};        // { table: { sessionToken, active, createdAt } }
 let orders = [];
