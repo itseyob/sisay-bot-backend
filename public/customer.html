@@ -115,16 +115,33 @@ let kgSel = {};
 let ordersList = [];
 let orderCancelTimers = {};
 
-// Menu data
-const KG = new Set(["m1","m2","m3","m5"]);
+// Menu data is loaded from PostgreSQL through /api/menu.
+let menuItems = [];
 const KG_OPTIONS = [0.5, 1, 1.5, 2];
-const SP = new Set(["sp1","sp2","sp3","sp4","sp5"]);
-const VG = new Set(["v1","v2","v3","v4","v5"]);
-const CATS = { specials:{ids:["sp1","sp2","sp3","sp4","sp5"]}, mains:{ids:["m1","m2","m3","m4","m5"]}, veg:{ids:["v1","v2","v3","v4","v5"]}, bev:{ids:["b1","b2","b3","b4","b5"]} };
-const BP = { sp1:2400,sp2:1850,sp3:1295,sp4:1575,sp5:1950, m1:1400,m2:1350,m3:895,m4:675,m5:950, v1:150,v2:260,v3:120,v4:130,v5:100, b1:50,b2:140,b3:20,b4:30,b5:40 };
-const T = { am:{cats:{all:"ሁሉም",specials:"ልዩ",mains:"ዋና",veg:"ጾም",bev:"መጠጥ"}, add:"ጨምር", total:"ጠቅላላ", place:"አረጋግጥ", empty:"ቅርጫት ባዶ", prep:"እየተዘጋጀ", ready:"ዝግጁ", rejected:"ተቀባይነት አላገኘም", approved:"ተቀባይነት አገኘ", kglbl:"ክብደት (ኪግ)", cancel:"ሰርዝ", estimated:"የሚጠበቅ ጊዜ", min:"ደቂቃ"}, en:{cats:{all:"All",specials:"Specials",mains:"Mains",veg:"Veg",bev:"Drinks"}, add:"Add", total:"Total", place:"Confirm", empty:"Cart empty", prep:"Preparing", ready:"Ready", rejected:"Rejected", approved:"Approved", kglbl:"Weight (kg)", cancel:"Cancel", estimated:"Est. wait", min:"min"} };
+
+const T = {
+  am: {
+    cats:{all:"ሁሉም",specials:"ልዩ",mains:"ዋና",veg:"ጾም",bev:"መጠጥ"},
+    add:"ጨምር", total:"ጠቅላላ", place:"አረጋግጥ", empty:"ቅርጫት ባዶ",
+    prep:"እየተዘጋጀ", ready:"ዝግጁ", rejected:"ተቀባይነት አላገኘም",
+    approved:"ተቀባይነት አገኘ", kglbl:"ክብደት (ኪግ)", cancel:"ሰርዝ",
+    estimated:"የሚጠበቅ ጊዜ", min:"ደቂቃ", unavailable:"አሁን የለም"
+  },
+  en: {
+    cats:{all:"All",specials:"Specials",mains:"Mains",veg:"Veg",bev:"Drinks"},
+    add:"Add", total:"Total", place:"Confirm", empty:"Cart empty",
+    prep:"Preparing", ready:"Ready", rejected:"Rejected", approved:"Approved",
+    kglbl:"Weight (kg)", cancel:"Cancel", estimated:"Est. wait", min:"min",
+    unavailable:"Currently unavailable"
+  }
+};
 const t = (k) => T[lang][k] || T.en[k] || k;
-const ti = (id) => ({ sp1:"Combo",sp2:"Beteseb",sp3:"Sisay Special",sp4:"Maheberawi",sp5:"Emperor's Tibs", m1:"Shekla Tibs",m2:"Merek Tibs",m3:"Dulet",m4:"Kikil",m5:"Gas Light", v1:"Shiro",v2:"Beyeaynet",v3:"Firfir",v4:"Misir",v5:"Pasta", b1:"Soda",b2:"Beer",b3:"Tea",b4:"Coffee",b5:"Macchiato" }[id] || id);
+const getMenuItem = (id) => menuItems.find(item => item.id === id);
+const isKg = (id) => getMenuItem(id)?.byWeight === true;
+const ti = (id) => getMenuItem(id)?.name || id;
+const escapeHtml = (value) => String(value).replace(/[&<>"']/g, char => ({
+  '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
+}[char]));
   
 async function checkSession() {
   if (!TABLE_ID || !SESSION_TOKEN) {
@@ -228,7 +245,27 @@ sessionForm.addEventListener('submit', async (event) => {
 
 function showInactive(show){ document.getElementById('main-app').style.display = show ? 'none' : 'block'; document.getElementById('inactiveOverlay').style.display = show ? 'flex' : 'none'; }
 function startPolling(){ setInterval(fetchLiveOrders, 4000); }
-async function loadInitialOrders(){ await fetchLiveOrders(); renderMenu(); renderCatTabs(); updateCartUI(); }
+async function loadInitialOrders(){
+  await fetchMenu();
+  await fetchLiveOrders();
+  renderCatTabs();
+  renderMenu();
+  updateCartUI();
+}
+
+async function fetchMenu(){
+  try {
+    const res = await fetch(`${API_BASE}/api/menu`);
+    if (!res.ok) throw new Error('Menu request failed');
+    const data = await res.json();
+    if (!Array.isArray(data.items)) throw new Error('Invalid menu response');
+    menuItems = data.items;
+  } catch (error) {
+    console.error('Could not load menu:', error);
+    showToast('Could not load the menu. Please refresh.', 3000);
+    throw error;
+  }
+}
 async function fetchLiveOrders(){
   if(!activeSessionValid) return;
   try{
@@ -275,12 +312,92 @@ function showSuccessModal(orderNo){
 }
 function updateCartUI(){ const cnt = Object.values(cart).reduce((s,i)=>s+i.qty,0); document.getElementById('cartCnt').innerText = cnt; const itemsDiv = document.getElementById('cartItems'); if(cnt===0){ itemsDiv.innerHTML = `<div class="empty-cart">${t('empty')}</div>`; document.getElementById('cartTotal').innerHTML = ''; return; } let html=''; Object.entries(cart).forEach(([id,it])=>{ html+=`<div class="cart-row"><div><b>${it.name}</b> ${it.kg?`(${it.kg}kg)`:''} x${it.qty}</div><div>${(it.price*it.qty).toLocaleString()} br <button onclick="removeCartItem('${id}')" style="background:none;border:none;color:red;margin-left:8px"><i class="ti ti-trash"></i></button></div></div>`; }); itemsDiv.innerHTML = html; const total = Object.values(cart).reduce((s,i)=>s+i.price*i.qty,0); document.getElementById('cartTotal').innerHTML = `<div style="border-top:1px solid var(--border);padding-top:12px;font-size:18px;">${t('total')}: ${total.toLocaleString()} br</div>`; }
 function removeCartItem(id){ delete cart[id]; updateCartUI(); renderMenu(); }
-function addToCart(id){ const isKg = KG.has(id); const selKg = isKg ? (kgSel[id] || 1) : 1; const price = isKg ? BP[id] * selKg : BP[id]; if(cart[id]) cart[id].qty +=1; else cart[id] = { name: ti(id), price, qty:1, kg: isKg ? selKg : null }; updateCartUI(); renderMenu(); showToast(`+ ${ti(id)}`, 800); }
-function renderMenu(){ const cat = document.querySelector('.ctab.active')?.dataset.cat || 'all'; let ids = cat==='all'? Object.values(CATS).flatMap(c=>c.ids) : CATS[cat]?.ids || []; const container = document.getElementById('menuContent'); container.innerHTML = `<div class="items-grid">`+ids.map(id=>{ const isKg = KG.has(id); const priceDisp = isKg ? `${BP[id]} br/kg` : `${BP[id]} br`; const badge = SP.has(id) ? '<span class="item-badge">🔥 ልዩ</span>' : (VG.has(id)?'<span class="item-badge">🌱 Veg</span>':''); return `<div class="item-card">${badge}<div class="item-name">${ti(id)}</div><div class="item-price">${priceDisp}</div>${isKg?`<div style="display:flex;gap:6px;margin:8px 0">${KG_OPTIONS.map(k=>`<button class="kg-btn${kgSel[id]===k?' sel':''}" onclick="event.stopPropagation(); kgSel['${id}']=${k}; renderMenu();">${k}kg</button>`).join('')}</div>`:''}<button class="add-btn" onclick="addToCart('${id}')"><i class="ti ti-plus"></i> ${t('add')}</button></div>`; }).join('')+`</div>`; }
+function addToCart(id){
+  const item = getMenuItem(id);
+  if (!item || !item.available) {
+    showToast(t('unavailable'), 1800);
+    return;
+  }
+
+  const weightBased = item.byWeight === true;
+  const selectedKg = weightBased ? (kgSel[id] || 1) : 1;
+  const price = Number(item.price) * selectedKg;
+
+  if (cart[id]) {
+    cart[id].qty += 1;
+    cart[id].price = price;
+    cart[id].kg = weightBased ? selectedKg : null;
+  } else {
+    cart[id] = {
+      name: item.name,
+      price,
+      qty: 1,
+      kg: weightBased ? selectedKg : null
+    };
+  }
+
+  updateCartUI();
+  renderMenu();
+  showToast(`+ ${item.name}`, 800);
+}
+
+function renderMenu(){
+  const activeCategory = document.querySelector('.ctab.active')?.dataset.cat || 'all';
+  const categoryOrder = ['specials', 'mains', 'veg', 'bev'];
+  const sortedItems = [...menuItems].sort((a, b) =>
+    categoryOrder.indexOf(a.category) - categoryOrder.indexOf(b.category)
+  );
+  const items = activeCategory === 'all'
+    ? sortedItems
+    : sortedItems.filter(item => item.category === activeCategory);
+
+  const container = document.getElementById('menuContent');
+
+  if (!items.length) {
+    container.innerHTML = `<p style="text-align:center;padding:24px;">No menu items available.</p>`;
+    return;
+  }
+
+  container.innerHTML = `<div class="items-grid">` + items.map(item => {
+    const id = item.id;
+    const weightBased = item.byWeight === true;
+    const available = item.available === true;
+    const priceDisplay = weightBased
+      ? `${Number(item.price).toLocaleString()} br/kg`
+      : `${Number(item.price).toLocaleString()} br`;
+
+    const badge = item.category === 'specials'
+      ? '<span class="item-badge">🔥 ልዩ</span>'
+      : (item.category === 'veg' ? '<span class="item-badge">🌱 Veg</span>' : '');
+
+    const weightOptions = weightBased && available
+      ? `<div style="display:flex;gap:6px;margin:8px 0">${KG_OPTIONS.map(k =>
+          `<button class="kg-btn${(kgSel[id] || 1) === k ? ' sel' : ''}"
+            onclick="event.stopPropagation(); kgSel['${id}']=${k}; renderMenu();">${k}kg</button>`
+        ).join('')}</div>`
+      : '';
+
+    const actionButton = available
+      ? `<button class="add-btn" onclick="addToCart('${id}')"><i class="ti ti-plus"></i> ${t('add')}</button>`
+      : `<button class="add-btn" disabled style="background:var(--text3);cursor:not-allowed;opacity:.8;">${t('unavailable')}</button>`;
+
+    return `<div class="item-card" style="${available ? '' : 'opacity:.78;'}">
+      ${badge}
+      <div class="item-name">${escapeHtml(item.name)}</div>
+      <div class="item-price">${priceDisplay}</div>
+      ${weightOptions}
+      ${actionButton}
+    </div>`;
+  }).join('') + `</div>`;
+}
+
 function renderCatTabs() {
   const catsDiv = document.getElementById('catTabs');
-
-  const categories = ['all', ...Object.keys(CATS)];
+  const categoryOrder = ['specials', 'mains', 'veg', 'bev'];
+  const availableCategories = categoryOrder.filter(category =>
+    menuItems.some(item => item.category === category)
+  );
+  const categories = ['all', ...availableCategories];
 
   catsDiv.innerHTML = categories.map(category =>
     `<button class="ctab ${category === 'all' ? 'active' : ''}"
@@ -294,7 +411,6 @@ function renderCatTabs() {
       catsDiv.querySelectorAll('.ctab').forEach(item =>
         item.classList.remove('active')
       );
-
       button.classList.add('active');
       renderMenu();
     };
