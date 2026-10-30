@@ -164,6 +164,31 @@ async function sendTelegram(order) {
   } catch(e) { console.error('Telegram error:', e.message); }
 }
 
+// ========== MENU API ==========
+app.get('/api/menu', async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT id, name, category, price, by_weight, available
+      FROM menu_items
+      ORDER BY category, id
+    `);
+
+    const items = result.rows.map(item => ({
+      id: item.id,
+      name: item.name,
+      category: item.category,
+      price: Number(item.price),
+      byWeight: item.by_weight,
+      available: item.available
+    }));
+
+    res.json({ items });
+  } catch (error) {
+    console.error('Menu fetch error:', error);
+    res.status(500).json({ error: 'Could not load menu' });
+  }
+});
+
 // ========== CUSTOMER ENDPOINTS ==========
 app.get('/api/validate-session', (req, res) => {
   const { table, session } = req.query;
