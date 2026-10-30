@@ -2,8 +2,18 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 const TelegramBot = require('node-telegram-bot-api');
+const { Pool } = require('pg');
 
 const app = express();
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL,
+  ssl: {
+    rejectUnauthorized: false
+  }
+});
+pool.query('SELECT NOW()')
+  .then(() => console.log('✅ PostgreSQL connected successfully'))
+  .catch(err => console.error('❌ PostgreSQL connection failed:', err.message));
 app.use(cors());
 app.use(bodyParser.json());
 
