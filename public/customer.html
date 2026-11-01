@@ -265,6 +265,22 @@ const escapeHtml = (value) => String(value).replace(/[&<>"']/g, char => ({
   '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;'
 }[char]));
   
+let toastTimer;
+
+function showToast(message, duration = 2000) {
+  const toast = document.getElementById('toastMsg');
+
+  if (!toast) return;
+
+  toast.textContent = message;
+  toast.style.opacity = '1';
+
+  clearTimeout(toastTimer);
+
+  toastTimer = setTimeout(() => {
+    toast.style.opacity = '0';
+  }, duration);
+}
 async function checkSession() {
   if (!TABLE_ID || !SESSION_TOKEN) {
     showInactive(true);
