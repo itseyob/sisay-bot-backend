@@ -564,7 +564,7 @@ app.post('/api/admin/update-status', adminAuth, async (req, res) => {
   try {
     const { orderId, status } = req.body;
     const allowedStatuses = ['approved', 'preparing', 'ready', 'served', 'rejected'];
-    if (!/^\\d+$/.test(String(orderId)) || !allowedStatuses.includes(status)) {
+    if (!/^\d+$/.test(String(orderId)) || !allowedStatuses.includes(status)) {
       return res.status(400).json({ error: 'Invalid order status update' });
     }
 
