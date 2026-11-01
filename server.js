@@ -339,37 +339,87 @@ const adminAuth = (req, res, next) => {
   next();
 };
 
-app.post('/api/admin/activate-table', adminAuth, (req, res) => {
-  const { table } = req.body;
-  if (!isValidTable(table)) return res.status(400).json({ error: 'Invalid table' });
-  const sessionToken = Math.random().toString(36).substring(2, 8).toUpperCase();
-  sessions[table] = {
-    sessionToken,
-    active: true,
-    createdAt: Date.now()
-  };
- res.json({
-  ok: true,
-  session: sessionToken,
-  qrUrl: `/customer.html?table=${table}&session=${sessionToken}`
-});
+
+app.post('/api/admin/activate-table', adminAuth, async (req, res) => {
+  try {
+    const table = Number(req.body.table);
+
+    if (!isValidTable(table)) {
+      return res.status(400).json({ error: 'Invalid table' });
+    }
+
+    const sessionToken = require('crypto')
+      .randomBytes(4)
+      .toString('hex')
+      .toUpperCase();
+
+    await pool.query(
+      `INSERT INTO table_sessions (table_number, session_token, active, updated_at)
+       VALUES ($1, $2, TRUE, NOW())
+       ON CONFLICT (table_number)
+       DO UPDATE SET
+         session_token = EXCLUDED.session_token,
+         active = TRUE,
+         updated_at = NOW()`,
+      [table, sessionToken]
+    );
+
+    res.json({
+      ok: true,
+      session: sessionToken,
+      qrUrl: `/customer.html?table=${table}&session=${sessionToken}`
+    });
+  } catch (error) {
+    console.error('Activate table error:', error);
+    res.status(500).json({ error: 'Could not activate table' });
+  }
 });
 
-app.post('/api/admin/deactivate-table', adminAuth, (req, res) => {
-  const { table } = req.body;
-  if (sessions[table]) {
-    sessions[table].active = false;
-    delete sessions[table];
+app.post('/api/admin/deactivate-table', adminAuth, async (req, res) => {
+  try {
+    const table = Number(req.body.table);
+
+    if (!isValidTable(table)) {
+      return res.status(400).json({ error: 'Invalid table' });
+    }
+
+    await pool.query(
+      `UPDATE table_sessions
+       SET active = FALSE, updated_at = NOW()
+       WHERE table_number = $1`,
+      [table]
+    );
+
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Deactivate table error:', error);
+    res.status(500).json({ error: 'Could not deactivate table' });
   }
-  res.json({ ok: true });
 });
 
-app.get('/api/admin/tables', adminAuth, (req, res) => {
-  const tableStatus = {};
-  for (let i = 1; i <= 20; i++) {
-    tableStatus[i] = sessions[i] ? { active: true, session: sessions[i].sessionToken } : { active: false };
+app.get('/api/admin/tables', adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      'SELECT table_number, session_token, active FROM table_sessions'
+    );
+
+    const tableStatus = {};
+
+    for (let i = 1; i <= 20; i++) {
+      tableStatus[i] = { active: false };
+    }
+
+    for (const row of result.rows) {
+      tableStatus[row.table_number] = row.active
+        ? { active: true, session: row.session_token }
+        : { active: false };
+    }
+
+    res.json({ tables: tableStatus });
+  } catch (error) {
+    console.error('Get tables error:', error);
+    res.status(500).json({ error: 'Could not load tables' });
   }
-  res.json({ tables: tableStatus });
 });
 
 app.get('/api/admin/orders', adminAuth, (req, res) => {
