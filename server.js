@@ -216,17 +216,12 @@ app.get('/api/validate-session', async (req, res) => {
 });
 
 
-app.post('/api/place-order', (req, res) => {
+app.post('/api/place-order', async (req, res) => {
   const { table, session, items, orderToken } = req.body;
+  const tableNumber = Number(table);
 
-  if (!isValidTable(table)) {
-    return res.status(400).json({ error: 'Invalid table' });
-  }
-
-  const sess = sessions[table];
-
-  if (!sess || sess.sessionToken !== session || !sess.active) {
-    return res.status(403).json({ error: 'Table not active' });
+  if (!isValidTable(tableNumber) || !session) {
+    return res.status(400).json({ error: 'Invalid table or session' });
   }
 
   if (!Array.isArray(items) || items.length === 0 || items.length > 20) {
@@ -237,93 +232,144 @@ app.post('/api/place-order', (req, res) => {
     return res.status(400).json({ error: 'Invalid order token' });
   }
 
-  const verifiedItems = [];
+  const client = await pool.connect();
 
-  for (const item of items) {
-    const menuItem = MENU[item.id];
+  try {
+    await client.query('BEGIN');
 
-    if (!menuItem) {
-      return res.status(400).json({ error: `Invalid menu item: ${item.id}` });
+    // Confirm the table is still active in the database.
+    const sessionResult = await client.query(
+      `SELECT 1 FROM table_sessions
+       WHERE table_number = $1
+         AND session_token = $2
+         AND active = TRUE
+       FOR UPDATE`,
+      [tableNumber, session]
+    );
+
+    if (sessionResult.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(403).json({ error: 'Table not active' });
     }
 
-    if (!Number.isInteger(item.qty) || item.qty < 1 || item.qty > 50) {
-      return res.status(400).json({ error: 'Invalid item quantity' });
+    // Read authoritative prices and availability from PostgreSQL.
+    const ids = [...new Set(items.map(item => item && item.id).filter(id => typeof id === 'string'))];
+    if (ids.length === 0 || ids.length !== new Set(items.map(item => item && item.id)).size) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ error: 'Invalid menu item' });
     }
 
-    let itemPrice;
+    const menuResult = await client.query(
+      `SELECT id, name, price, by_weight, available
+       FROM menu_items
+       WHERE id = ANY($1::text[])`,
+      [ids]
+    );
+    const menuById = new Map(menuResult.rows.map(row => [row.id, row]));
 
-    if (menuItem.byWeight) {
-      if (![0.5, 1, 1.5, 2].includes(item.kg)) {
-        return res.status(400).json({ error: 'Invalid weight option' });
+    const verifiedItems = [];
+    let total = 0;
+
+    for (const item of items) {
+      const menuItem = menuById.get(item.id);
+
+      if (!menuItem || !menuItem.available) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'One or more items are unavailable' });
       }
 
-      itemPrice = menuItem.price * item.kg;
-    } else {
-      if (item.kg !== undefined && item.kg !== null) {
-        return res.status(400).json({ error: 'This item is not sold by weight' });
+      if (!Number.isInteger(item.qty) || item.qty < 1 || item.qty > 50) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ error: 'Invalid item quantity' });
       }
 
-      itemPrice = menuItem.price;
+      const basePrice = Number(menuItem.price);
+      let kg = null;
+      let lineTotal;
+
+      if (menuItem.by_weight) {
+        kg = Number(item.kg);
+        if (![0.5, 1, 1.5, 2].includes(kg)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'Invalid weight option' });
+        }
+        lineTotal = basePrice * kg * item.qty;
+      } else {
+        if (item.kg !== undefined && item.kg !== null) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ error: 'This item is not sold by weight' });
+        }
+        lineTotal = basePrice * item.qty;
+      }
+
+      total += lineTotal;
+      verifiedItems.push({
+        id: menuItem.id,
+        name: menuItem.name,
+        qty: item.qty,
+        kg,
+        price: basePrice,
+        lineTotal
+      });
     }
 
-    verifiedItems.push({
-      id: item.id,
-      name: menuItem.name,
-      qty: item.qty,
-      ...(menuItem.byWeight ? { kg: item.kg } : {}),
-      price: itemPrice
-    });
+    const orderNumber = `ORD-${Date.now()}-${require('crypto').randomBytes(3).toString('hex').toUpperCase()}`;
+
+    const orderResult = await client.query(
+      `INSERT INTO orders
+         (order_number, order_token, table_number, session_token, total, status)
+       VALUES ($1, $2, $3, $4, $5, 'pending')
+       RETURNING id, created_at, updated_at`,
+      [orderNumber, orderToken, tableNumber, session, total]
+    );
+
+    const orderId = orderResult.rows[0].id;
+
+    for (const item of verifiedItems) {
+      await client.query(
+        `INSERT INTO order_items
+           (order_id, menu_item_id, item_name, quantity, kg, unit_price)
+         VALUES ($1, $2, $3, $4, $5, $6)`,
+        [orderId, item.id, item.name, item.qty, item.kg, item.price]
+      );
+    }
+
+    await client.query('COMMIT');
+
+    const newOrder = {
+      id: orderId,
+      orderNumber,
+      table: tableNumber,
+      session,
+      items: verifiedItems.map(item => ({
+        id: item.id,
+        name: item.name,
+        qty: item.qty,
+        ...(item.kg !== null ? { kg: item.kg } : {}),
+        price: item.price * (item.kg !== null ? item.kg : 1)
+      })),
+      total,
+      status: 'pending',
+      createdAt: orderResult.rows[0].created_at,
+      updatedAt: orderResult.rows[0].updated_at
+    };
+
+    // Telegram is optional; a notification failure must not undo a saved order.
+    sendTelegram(newOrder).catch(error => console.error('Telegram notification failed:', error.message));
+
+    return res.json({ ok: true, orderNumber });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+
+    if (error.code === '23505' && error.constraint === 'orders_order_token_key') {
+      return res.status(409).json({ error: 'Duplicate order' });
+    }
+
+    console.error('Place order error:', error);
+    return res.status(500).json({ error: 'Could not place order' });
+  } finally {
+    client.release();
   }
-
- if (processedOrderTokens.has(orderToken)) {
-  return res.status(409).json({ error: 'Duplicate order' });
-}
-
-if (!checkRateLimit(table)) {
-  return res.status(429).json({
-    error: 'Please wait 20 seconds before ordering again'
-  });
-}
-
-processedOrderTokens.set(orderToken, Date.now());
-
-// Remove expired tokens
-setTimeout(() => {
-  const tokenTime = processedOrderTokens.get(orderToken);
-
-  if (tokenTime && Date.now() - tokenTime >= 10 * 60 * 1000) {
-    processedOrderTokens.delete(orderToken);
-  }
-}, 10 * 60 * 1000);
-  const total = verifiedItems.reduce(
-    (sum, item) => sum + item.price * item.qty,
-    0
-  );
-
-  const lines = verifiedItems.map(
-    item => `${item.name}${item.kg ? ` (${item.kg}kg)` : ''} ×${item.qty}`
-  );
-
-  const orderId = nextOrderId++;
-  const orderNumber = `ORD-${orderId}`;
-
-  const newOrder = {
-    id: orderId,
-    orderNumber,
-    table: parseInt(table),
-    session,
-    items: verifiedItems,
-    total,
-    lines,
-    status: 'pending',
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  };
-
-  orders.push(newOrder);
-  sendTelegram(newOrder);
-
-  res.json({ ok: true, orderNumber });
 });
 
 app.get('/api/orders', (req, res) => {
