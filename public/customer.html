@@ -412,7 +412,7 @@ async function fetchLiveOrders(){
     ordersList = data.orders || [];
     document.getElementById('ordersBadge').innerText = ordersList.length;
     renderOrdersList();
-    // Orders remain pending unless staff changes the status or the customer cancels manually.
+    // Orders still pending after five minutes are automatically cancelled by the server.
   }catch(e){}
 }
 async function cancelOrder(orderId){
