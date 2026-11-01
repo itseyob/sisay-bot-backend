@@ -372,26 +372,73 @@ app.post('/api/place-order', async (req, res) => {
   }
 });
 
-app.get('/api/orders', (req, res) => {
-  const { table, session } = req.query;
-  if (!isValidTable(table)) return res.json({ orders: [] });
-  const sess = sessions[table];
-  if (!sess || sess.sessionToken !== session) return res.json({ orders: [] });
-  const userOrders = orders.filter(o => o.table == table && o.session === session);
-  res.json({ orders: userOrders });
+app.get('/api/orders', async (req, res) => {
+  try {
+    const table = Number(req.query.table);
+    const { session } = req.query;
+    if (!isValidTable(table) || !session) return res.status(400).json({ orders: [] });
+
+    const active = await pool.query(
+      'SELECT 1 FROM table_sessions WHERE table_number = $1 AND session_token = $2 AND active = TRUE',
+      [table, session]
+    );
+    if (!active.rowCount) return res.status(403).json({ orders: [] });
+
+    const result = await pool.query(
+      `SELECT o.id, o.order_number AS "orderNumber", o.table_number AS "table",
+              o.session_token AS session, o.total, o.status,
+              o.created_at AS "createdAt", o.updated_at AS "updatedAt",
+              COALESCE(
+                json_agg(json_build_object(
+                  'id', oi.menu_item_id,
+                  'name', oi.item_name,
+                  'qty', oi.quantity,
+                  'kg', oi.kg,
+                  'price', CASE WHEN oi.kg IS NOT NULL THEN oi.unit_price * oi.kg ELSE oi.unit_price END
+                )) FILTER (WHERE oi.id IS NOT NULL),
+                '[]'::json
+              ) AS items
+       FROM orders o
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.table_number = $1 AND o.session_token = $2
+       GROUP BY o.id
+       ORDER BY o.created_at DESC
+       LIMIT 50`,
+      [table, session]
+    );
+    res.json({ orders: result.rows });
+  } catch (error) {
+    console.error('Customer orders error:', error);
+    res.status(500).json({ error: 'Could not load orders' });
+  }
 });
 
-app.post('/api/cancel-order/:orderId', (req, res) => {
-  const { table, session } = req.body;
-  const orderId = parseInt(req.params.orderId);
-  const order = orders.find(o => o.id === orderId);
-  if (!order) return res.status(404).json({ error: 'Not found' });
-  if (order.table != table || order.session !== session) return res.status(403).json({ error: 'Not allowed' });
-  const elapsed = Date.now() - new Date(order.createdAt).getTime();
-  if (elapsed > 30000) return res.status(400).json({ error: 'Cancellation window closed' });
-  if (order.status !== 'pending') return res.status(400).json({ error: 'Cannot cancel now' });
-  order.status = 'cancelled';
-  res.json({ ok: true });
+app.post('/api/cancel-order/:orderId', async (req, res) => {
+  try {
+    const { table, session } = req.body;
+    const tableNumber = Number(table);
+    const orderId = req.params.orderId;
+
+    if (!isValidTable(tableNumber) || !session || !/^\\d+$/.test(String(orderId))) {
+      return res.status(400).json({ error: 'Invalid cancellation request' });
+    }
+
+    const result = await pool.query(
+      `UPDATE orders
+       SET status = 'cancelled', updated_at = NOW()
+       WHERE id = $1 AND table_number = $2 AND session_token = $3
+         AND status = 'pending'
+         AND created_at >= NOW() - INTERVAL '30 seconds'
+       RETURNING id`,
+      [orderId, tableNumber, session]
+    );
+
+    if (!result.rowCount) return res.status(400).json({ error: 'Order cannot be cancelled' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Cancel order error:', error);
+    res.status(500).json({ error: 'Could not cancel order' });
+  }
 });
 
 // ========== STAFF ENDPOINTS (Admin) ==========
@@ -484,30 +531,83 @@ app.get('/api/admin/tables', adminAuth, async (req, res) => {
   }
 });
 
-app.get('/api/admin/orders', adminAuth, (req, res) => {
-  const pending = orders.filter(o => o.status !== 'cancelled' && o.status !== 'served');
-  res.json({ orders: pending });
+app.get('/api/admin/orders', adminAuth, async (req, res) => {
+  try {
+    const result = await pool.query(
+      `SELECT o.id, o.order_number AS "orderNumber", o.table_number AS "table",
+              o.total, o.status, o.created_at AS "createdAt",
+              COALESCE(
+                json_agg(json_build_object(
+                  'id', oi.menu_item_id,
+                  'name', oi.item_name,
+                  'qty', oi.quantity,
+                  'kg', oi.kg,
+                  'price', CASE WHEN oi.kg IS NOT NULL THEN oi.unit_price * oi.kg ELSE oi.unit_price END
+                )) FILTER (WHERE oi.id IS NOT NULL),
+                '[]'::json
+              ) AS items
+       FROM orders o
+       LEFT JOIN order_items oi ON oi.order_id = o.id
+       WHERE o.status NOT IN ('cancelled', 'served', 'rejected')
+       GROUP BY o.id
+       ORDER BY o.created_at ASC
+       LIMIT 100`
+    );
+    res.json({ orders: result.rows });
+  } catch (error) {
+    console.error('Admin orders error:', error);
+    res.status(500).json({ error: 'Could not load orders' });
+  }
 });
 
-app.post('/api/admin/update-status', adminAuth, (req, res) => {
-  const { orderId, status } = req.body;
-  const order = orders.find(o => o.id == orderId);
-  if (!order) return res.status(404).json({ error: 'Order not found' });
-  order.status = status;
-  order.updatedAt = new Date().toISOString();
-  res.json({ ok: true });
+app.post('/api/admin/update-status', adminAuth, async (req, res) => {
+  try {
+    const { orderId, status } = req.body;
+    const allowedStatuses = ['approved', 'preparing', 'ready', 'served', 'rejected'];
+    if (!/^\\d+$/.test(String(orderId)) || !allowedStatuses.includes(status)) {
+      return res.status(400).json({ error: 'Invalid order status update' });
+    }
+
+    const result = await pool.query(
+      'UPDATE orders SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING id',
+      [status, orderId]
+    );
+    if (!result.rowCount) return res.status(404).json({ error: 'Order not found' });
+    res.json({ ok: true });
+  } catch (error) {
+    console.error('Update order status error:', error);
+    res.status(500).json({ error: 'Could not update order status' });
+  }
 });
 
-app.get('/api/admin/analytics', adminAuth, (req, res) => {
-  const today = new Date().toISOString().split('T')[0];
-  const todaysOrders = orders.filter(o => o.createdAt.startsWith(today) && o.status !== 'cancelled');
-  const revenue = todaysOrders.reduce((sum, o) => sum + o.total, 0);
-  const itemCount = {};
-  todaysOrders.forEach(o => {
-    o.items.forEach(it => { itemCount[it.name] = (itemCount[it.name] || 0) + it.qty; });
-  });
-  const topItems = Object.entries(itemCount).sort((a,b) => b[1] - a[1]).slice(0,3).map(([name]) => name);
-  res.json({ todayOrders: todaysOrders.length, revenue, topItems });
+app.get('/api/admin/analytics', adminAuth, async (req, res) => {
+  try {
+    const summary = await pool.query(
+      `SELECT COUNT(*)::int AS "todayOrders",
+              COALESCE(SUM(total), 0)::numeric AS revenue
+       FROM orders
+       WHERE created_at::date = CURRENT_DATE
+         AND status <> 'cancelled'`
+    );
+    const popular = await pool.query(
+      `SELECT oi.item_name AS name, SUM(oi.quantity)::int AS quantity
+       FROM order_items oi
+       JOIN orders o ON o.id = oi.order_id
+       WHERE o.created_at::date = CURRENT_DATE
+         AND o.status <> 'cancelled'
+       GROUP BY oi.item_name
+       ORDER BY quantity DESC
+       LIMIT 3`
+    );
+    res.json({
+      todayOrders: summary.rows[0].todayOrders,
+      revenue: Number(summary.rows[0].revenue),
+      topItems: popular.rows.map(row => row.name)
+    });
+  } catch (error) {
+    console.error('Analytics error:', error);
+    res.status(500).json({ error: 'Could not load analytics' });
+  }
 });
 
 // Serve static frontend files
