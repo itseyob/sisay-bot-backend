@@ -419,7 +419,7 @@ app.post('/api/cancel-order/:orderId', async (req, res) => {
     const tableNumber = Number(table);
     const orderId = req.params.orderId;
 
-    if (!isValidTable(tableNumber) || !session || !/^\\d+$/.test(String(orderId))) {
+    if (!isValidTable(tableNumber) || !session || !/^\d+$/.test(String(orderId))) {
       return res.status(400).json({ error: 'Invalid cancellation request' });
     }
 
