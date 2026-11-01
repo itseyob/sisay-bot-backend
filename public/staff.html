@@ -87,8 +87,22 @@
         `).join('');
     }
     async function updateStatus(orderId, status) {
-        await fetch('/api/admin/update-status', { method:'POST', headers:{'Content-Type':'application/json','x-admin-password':adminPassword}, body:JSON.stringify({orderId, status}) });
-        loadOrders();
+        try {
+            const res = await fetch('/api/admin/update-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-admin-password': adminPassword },
+                body: JSON.stringify({ orderId, status })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.ok) {
+                alert(data.error || 'Could not update order status');
+                return;
+            }
+            await loadAll();
+        } catch (error) {
+            console.error('Status update failed:', error);
+            alert('Could not reach the server. Please try again.');
+        }
     }
     async function loadAnalytics() {
         const res = await fetch('/api/admin/analytics', { headers: { 'x-admin-password': adminPassword } });
