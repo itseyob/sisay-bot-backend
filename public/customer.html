@@ -412,16 +412,26 @@ async function fetchLiveOrders(){
     ordersList = data.orders || [];
     document.getElementById('ordersBadge').innerText = ordersList.length;
     renderOrdersList();
-    for(let o of ordersList){ if(o.status === 'pending' && !orderCancelTimers[o.id] && (Date.now() - new Date(o.createdAt).getTime() < 30000)) scheduleCancelTimer(o); }
+    // Orders remain pending unless staff changes the status or the customer cancels manually.
   }catch(e){}
 }
-function scheduleCancelTimer(order){ if(orderCancelTimers[order.id]) clearTimeout(orderCancelTimers[order.id]); orderCancelTimers[order.id] = setTimeout(()=>{ cancelOrder(order.id); }, 30000 - (Date.now() - new Date(order.createdAt).getTime())); }
 async function cancelOrder(orderId){
   try{
-    await fetch(`${API_BASE}/api/cancel-order/${orderId}`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ table:currentTable, session:currentSession }) });
-    fetchLiveOrders();
+    const res = await fetch(`${API_BASE}/api/cancel-order/${orderId}`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ table:currentTable, session:currentSession })
+    });
+    const data = await res.json();
+    if(!res.ok || !data.ok){
+      showToast(data.error || "Could not cancel order", 2500);
+      return;
+    }
     showToast("Order cancelled", 2000);
-  }catch(e){}
+    await fetchLiveOrders();
+  }catch(e){
+    showToast("Could not reach the server", 2500);
+  }
 }
 function renderOrdersList() {
   const container = document.getElementById('ordersContent');
