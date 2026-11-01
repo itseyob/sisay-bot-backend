@@ -11,6 +11,28 @@ const pool = new Pool({
     rejectUnauthorized: false
   }
 });
+
+// Automatically cancel orders that remain pending for more than five minutes.
+async function expirePendingOrders() {
+  try {
+    const result = await pool.query(
+      `UPDATE orders
+       SET status = 'cancelled', updated_at = NOW()
+       WHERE status = 'pending'
+         AND created_at <= NOW() - INTERVAL '5 minutes'
+       RETURNING order_number`
+    );
+    if (result.rowCount) {
+      console.log(`Automatically cancelled ${result.rowCount} order(s) after five minutes.`);
+    }
+  } catch (error) {
+    console.error('Automatic order cancellation failed:', error.message);
+  }
+}
+
+// Check every 15 seconds so old pending orders are cancelled promptly.
+setInterval(expirePendingOrders, 15 * 1000);
+
 // ========== DATABASE TABLES ==========
 async function initializeDatabase() {
   try {
