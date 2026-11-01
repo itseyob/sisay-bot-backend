@@ -190,15 +190,31 @@ app.get('/api/menu', async (req, res) => {
 });
 
 // ========== CUSTOMER ENDPOINTS ==========
-app.get('/api/validate-session', (req, res) => {
-  const { table, session } = req.query;
-  if (!isValidTable(table)) return res.json({ valid: false });
-  const sess = sessions[table];
-  if (sess && sess.sessionToken === session && sess.active === true) {
-    return res.json({ valid: true });
+
+app.get('/api/validate-session', async (req, res) => {
+  try {
+    const table = Number(req.query.table);
+    const { session } = req.query;
+
+    if (!isValidTable(table) || !session) {
+      return res.json({ valid: false });
+    }
+
+    const result = await pool.query(
+      `SELECT 1 FROM table_sessions
+       WHERE table_number = $1
+       AND session_token = $2
+       AND active = TRUE`,
+      [table, session]
+    );
+
+    res.json({ valid: result.rowCount > 0 });
+  } catch (error) {
+    console.error('Session validation error:', error);
+    res.status(500).json({ valid: false });
   }
-  res.json({ valid: false });
 });
+
 
 app.post('/api/place-order', (req, res) => {
   const { table, session, items, orderToken } = req.body;
